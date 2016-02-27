@@ -1,0 +1,157 @@
+# depslib dependency file v1.0
+1435512289 source:/home/leystryku/Desktop/leyfakeserv/buf.cpp
+	"buf.h"
+	<memory>
+	<intrin.h>
+
+1435516912 
+
+1435517642 /home/leystryku/Desktop/leyfakeserv/buf.h
+	"stdafx.h"
+	"vector.h"
+	<inttypes.h>
+
+1435517642 h>
+
+1435516912 /home/leystryku/Desktop/leyfakeserv/stdafx.h
+	"targetver.h"
+	<windows.h>
+	<string>
+	<cstring>
+	<stdlib.h>
+	<dlfcn.h>
+	<fcntl.h>
+	<stdio.h>
+	<iostream>
+	<sstream>
+	<fstream>
+	<string>
+	<ctime>
+
+1435511750 /home/leystryku/Desktop/leyfakeserv/targetver.h
+	<SDKDDKVer.h>
+
+1435511750 .h>
+
+1435511210 /home/leystryku/Desktop/leyfakeserv/vector.h
+
+1435512565 source:/home/leystryku/Desktop/leyfakeserv/checksum_crc.cpp
+	"stdafx.h"
+	"checksum_crc.h"
+
+1435512565 crc.h"
+
+1435505262 /home/leystryku/Desktop/leyfakeserv/checksum_crc.h
+
+1435936152 source:/home/leystryku/Desktop/leyfakeserv/leyfakeserv.cpp
+	"leyfakeserv.h"
+
+1435936152 rv.h"
+
+1435624757 /home/leystryku/Desktop/leyfakeserv/leyfakeserv.h
+	"stdafx.h"
+	<stdlib.h>
+	<unistd.h>
+	<errno.h>
+	"csteamid.h"
+	"ISteamMasterServerUpdater001.h"
+	"ISteamGameServer009.h"
+	"ISteamClient008.h"
+	"checksum_crc.h"
+	<WinSock2.h>
+	<WS2tcpip.h>
+	<stdio.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<netdb.h>
+	<arpa/inet.h>
+	<unistd.h>
+	<iostream>
+	"buf.h"
+
+1435506368 /home/leystryku/Desktop/leyfakeserv/ISteamMasterServerUpdater001.h
+
+1435887532 /home/leystryku/Desktop/leyfakeserv/ISteamGameServer009.h
+
+1435508842 /home/leystryku/Desktop/leyfakeserv/ISteamClient008.h
+
+1419197976 source:/home/leystryku/Desktop/leyfakeserv/stdafx.cpp
+	"stdafx.h"
+
+1435513689 source:/home/leystryku/Desktop/leyfakeserv/main.cpp
+
+1435624654 /home/leystryku/Desktop/leyfakeserv/csteamid.h
+
+1435941302 source:/mnt/leyfakeserv/src/buf.cpp
+	"buf.h"
+	<memory>
+	<intrin.h>
+
+1435941302 /mnt/leyfakeserv/src/buf.h
+	"stdafx.h"
+	"vector.h"
+	<inttypes.h>
+
+1435941302 /mnt/leyfakeserv/src/stdafx.h
+	"targetver.h"
+	<windows.h>
+	<string>
+	<cstring>
+	<stdlib.h>
+	<dlfcn.h>
+	<fcntl.h>
+	<stdio.h>
+	<iostream>
+	<sstream>
+	<fstream>
+	<string>
+	<ctime>
+
+1435941302 /mnt/leyfakeserv/src/targetver.h
+	<SDKDDKVer.h>
+
+1435941302 /mnt/leyfakeserv/src/vector.h
+
+1435941302 source:/mnt/leyfakeserv/src/checksum_crc.cpp
+	"stdafx.h"
+	"checksum_crc.h"
+
+1435941302 /mnt/leyfakeserv/src/checksum_crc.h
+
+1435941302 source:/mnt/leyfakeserv/src/stdafx.cpp
+	"stdafx.h"
+
+1436213875 source:/mnt/leyfakeserv/src/leyfakeserv.cpp
+	"leyfakeserv.h"
+
+1435941302 /mnt/leyfakeserv/src/leyfakeserv.h
+	"stdafx.h"
+	<stdlib.h>
+	<unistd.h>
+	<errno.h>
+	"csteamid.h"
+	"ISteamMasterServerUpdater001.h"
+	"ISteamGameServer009.h"
+	"ISteamClient008.h"
+	"checksum_crc.h"
+	<WinSock2.h>
+	<WS2tcpip.h>
+	<stdio.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<netdb.h>
+	<arpa/inet.h>
+	<unistd.h>
+	<iostream>
+	"buf.h"
+
+1436133062 /mnt/leyfakeserv/src/csteamid.h
+
+1435941302 /mnt/leyfakeserv/src/ISteamMasterServerUpdater001.h
+
+1435941302 /mnt/leyfakeserv/src/ISteamGameServer009.h
+
+1435941302 /mnt/leyfakeserv/src/ISteamClient008.h
+
