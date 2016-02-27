@@ -1,4 +1,4 @@
-solution "leyfakeclient"
+solution "leysourceengineclient"
    language "C++"
    location "project"
    targetdir "build/release"
@@ -26,10 +26,12 @@ solution "leyfakeclient"
    
    includedirs { }
    libdirs {"libs/"}
+   links { "ws2_32", "winmm" }
+   
    
    -- A project defines one build target
-   project "leyfakeclient"
-      targetname "leyfakeclient"
+   project "leysourceengineclient"
+      targetname "leysourceengineclient"
 
       configuration "Release"
          defines { "NDEBUG", "_GENERIC" }

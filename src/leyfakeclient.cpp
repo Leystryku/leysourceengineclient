@@ -11,6 +11,8 @@
 #include "leychan.h"
 #include "leynet.h"
 
+#include <mmsystem.h>
+
 #define STEAMWORKS_CLIENT_INTERFACES
 #include "osw/Steamworks.h"
 #include "osw/ISteamUser017.h"
