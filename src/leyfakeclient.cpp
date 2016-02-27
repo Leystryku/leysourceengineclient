@@ -1,8 +1,4 @@
 
-
-#pragma oncea
-
-
 #include "leyfakeclient.h"
 #include "buf.h"
 #include "checksum_crc.h"
