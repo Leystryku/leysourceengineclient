@@ -1173,9 +1173,9 @@ int HandleConnectionLessPacket(char*ip, short port, int connection_less, bf_read
 			senddata.WriteByte(2);
 			senddata.WriteLong(-1);
 
-			senddata.WriteUBitLong(6, 6);
+			senddata.WriteUBitLong(4, 6);
 			senddata.WriteString("VModEnable 1");
-			senddata.WriteUBitLong(6, 6);
+			senddata.WriteUBitLong(4, 6);
 			senddata.WriteString("vban 0 0 0 0");
 
 			/*
