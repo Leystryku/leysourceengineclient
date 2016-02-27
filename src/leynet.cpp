@@ -25,18 +25,11 @@ char* leynet::HandleError()
 	if (customerrorhandling)
 	{
 		char *errmsg = new char[255];
-		sprintf(errmsg, "start failed %i\n", wsaerr);
+		sprintf(errmsg, "operation failed %i\n", wsaerr);
 		return errmsg;
 	}
-
-	char errmsg[255];
-	sprintf(errmsg, "start failed %i\n", wsaerr);
-	printf("errmsg: %s\n", errmsg);
-#else
-	return (char*)"k";
+	printf("errmsg: operation failed %i\n", wsaerr);
 #endif
-
-
 	return (char*)"k";
 }
 
@@ -122,6 +115,7 @@ char* leynet_udp::SendTo(const char*ip, short port, const char *buffer, int len)
 
 	int ret = sendto(sock, buffer, len, 0, reinterpret_cast<SOCKADDR *>(&add), sizeof(add));
 
+
 	if (ret < 0)
 		return HandleError();
 
@@ -129,7 +123,7 @@ char* leynet_udp::SendTo(const char*ip, short port, const char *buffer, int len)
 
 }
 
-char *leynet_udp::Receive(int*msgsize, char*buffer, int buffersize, char*ip, short recport)
+char *leynet_udp::Receive(int*msgsize, unsigned short*port, char*ip, char*buffer, int buffersize)
 {
 	if (!sock)
 		return (char*)"k";
@@ -147,12 +141,12 @@ char *leynet_udp::Receive(int*msgsize, char*buffer, int buffersize, char*ip, sho
 
 	buffer[ret + 1] = 0;
 
-	*msgsize = ret;
 
 	inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
 
-	if (recport != -1)
-		recport = ntohs(from.sin_port);
+
+	*msgsize = ret;
+	*port = ntohs(from.sin_port);
 
 	return 0;
 }

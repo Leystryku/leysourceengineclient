@@ -50,17 +50,17 @@ public:
 
 	//opening/closing/starting
 
-	char* Start(bool customerr = false);
+	char *Start(bool customerr = false);
 
-	char* OpenSocket(short port);
-	char* CloseSocket();
+	char *OpenSocket(short port);
+	char *CloseSocket();
 
 
 
 	//actions
 
-	char* SendTo(const char*ip, short port, const char *buffer, int len);
-	char* Receive(int*msgsize, char*buffer, int buffersize, char*ip, short recport = -1);
+	char *SendTo(const char*ip, short port, const char *buffer, int len);
+	char *Receive(int*msgsize, unsigned short*port, char*ip, char*buffer, int buffersize);
 
 };
 

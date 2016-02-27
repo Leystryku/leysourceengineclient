@@ -30,21 +30,18 @@ extern leychan *netchan;
 #define _sleep Sleep
 #endif
 
-int serversock = 0;
-
 int serverport = 27015;
-int clientport = 27005;
 
 char*serverip = "37.187.136.82";
 char nickname[255];
-const char *password = "none";
+char password[255];
 
+
+char *logon = 0;
 
 int bconnectstep = 1;
 
 char runcmd[255];
-
-long long steamid64 = 0;
 
 leychan *netchan = new leychan;
 
@@ -55,33 +52,8 @@ unsigned int net_hostframedeviation;
 bool voicemimic = false;
 bool voicetoggle = false;
 
-#ifndef _WIN32
-#define SOCKADDR sockaddr
-#endif // _WIN32
+leynet_udp net;
 
-void SendTo(int sock, const std::string& address, unsigned short port, const char* buffer, int len, int flags = 0)
-{
-
-	sockaddr_in add;
-	add.sin_family = AF_INET;
-
-	inet_pton(AF_INET, address.c_str(), &(add.sin_addr));
-
-	add.sin_port = htons(port);
-
-
-	int ret = sendto(sock, buffer, len, flags, reinterpret_cast<SOCKADDR *>(&add), sizeof(add));
-	if (ret < 0)
-	{
-		int err = lastneterror();
-		if (err == 10035 || err == 10054)
-			return;
-
-		printf("sendto failed: %i\n", err);
-
-		return;
-	}
-}
 
 static double diffclock(clock_t clock1, clock_t clock2)
 {
@@ -90,7 +62,7 @@ static double diffclock(clock_t clock1, clock_t clock2)
 	return diffms;
 }
 
-#define NETBUFFER_SIZE 50000
+#define NETBUFFER_SIZE 0xFFFF
 char netsendbuffer[NETBUFFER_SIZE];
 
 bf_write senddata(netsendbuffer, sizeof(netsendbuffer));
@@ -169,7 +141,7 @@ inline bool NET_SendDatagram(bool subchans = false)
 
 			netchan->m_nOutSequenceNr++;
 
-			SendTo(serversock, serverip, serverport, datagram, netdatagram.GetNumBytesWritten());
+			net.SendTo(serverip, serverport, datagram, netdatagram.GetNumBytesWritten());
 		}
 	}
 
@@ -252,9 +224,6 @@ unsigned long steamkey_encryptionsize = 0;
 unsigned char steamkey_encryptionkey[STEAM_KEYSIZE];
 unsigned char serversteamid[STEAM_KEYSIZE];
 int vacsecured = 0;
-
-
-char charip[INET_ADDRSTRLEN];
 
 bool HandleMessage(bf_read &msg, int type)
 {
@@ -348,27 +317,30 @@ bool HandleMessage(bf_read &msg, int type)
 		netchan->m_iServerCount = aservercount;
 		netchan->m_iSignOnState = state;
 
+		printf("KK __ %i\n", state);
 		if (state == 3)
 		{
-			printf("KK\n");
-
-			long noob = (long)(steamid64 - 76561197960265728);
 
 			senddata.WriteUBitLong(8, 6);
 			senddata.WriteLong(netchan->m_iServerCount);
-			senddata.WriteLong(617146426);
+			senddata.WriteLong(-2030366758);//clc_ClientInfo crc
 			senddata.WriteOneBit(1);//ishltv
-			senddata.WriteLong(noob);
-			senddata.WriteString("DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-			senddata.WriteOneBit(0);
-			senddata.WriteOneBit(0);
-			senddata.WriteOneBit(0);
-			senddata.WriteOneBit(0);
+			senddata.WriteLong(1337);
+
+			static int shit = 20;
+			shit++;
+			printf("LOL: %i\n", shit);
+
+			senddata.WriteUBitLong(0, shit);
+
+			NET_SendDatagram(0);
+
+			senddata.WriteUBitLong(0, 6);
 
 			senddata.WriteUBitLong(6, 6);
 			senddata.WriteByte(state);
 			senddata.WriteLong(aservercount);
-			NET_SendDatagram();
+			NET_SendDatagram(0);
 
 			return true;
 		}
@@ -385,7 +357,6 @@ bool HandleMessage(bf_read &msg, int type)
 				{
 					senddata.WriteUBitLong(1, 32);
 				}
-
 
 			}
 
@@ -699,6 +670,15 @@ bool HandleMessage(bf_read &msg, int type)
 		return true;
 	}
 
+	if (type == 20)//svc_CrosshairAngle
+	{
+		int p = msg.ReadUBitLong(16);
+		int y = msg.ReadUBitLong(16);
+		int r = msg.ReadUBitLong(16);
+		
+		printf("Received svc_CrosshairAngle p: %d y: %d r: %d\n", p, y, r);
+	}
+
 	if (type == 21)//svc_BSPDecal
 	{
 
@@ -714,7 +694,9 @@ bool HandleMessage(bf_read &msg, int type)
 		if (useentity == 1)
 		{
 			ent = msg.ReadUBitLong(MAX_EDICT_BITS);
-			modulation = msg.ReadUBitLong(12);
+
+			modulation = msg.ReadUBitLong(12);//fix me	
+
 		}
 
 		int lowpriority = msg.ReadOneBit();
@@ -877,7 +859,35 @@ bool HandleMessage(bf_read &msg, int type)
 
 		if (bconnectstep)
 		{
+			/*
+			
+			leynet_tcp tcp;
+			printf("TCP TIME2\n");
+			tcp.OpenConnection(serverip, serverport);//is that really the tcp port
+			printf("CONNECTED: %s __ %i\n", serverip, serverport);
 
+			senddata.Reset();
+
+			memset(netsendbuffer, 0xFF, NETBUFFER_SIZE);
+
+			tcp.Send("\x09", 1);
+			Sleep(100);
+
+			
+			senddata.WriteUBitLong(10, 6);
+			senddata.WriteWord(0xFFFF);
+
+		
+
+			for (int i = 0; i < 1000; i++)
+			{
+				senddata.WriteOneBit(i%2==0);
+			}
+
+
+				tcp.Send((const char*)senddata.GetData(), senddata.GetNumBytesWritten());
+
+				*/
 			senddata.WriteUBitLong(6, 6);
 			senddata.WriteByte(6);
 			senddata.WriteLong(netchan->m_iServerCount);
@@ -886,8 +896,9 @@ bool HandleMessage(bf_read &msg, int type)
 			senddata.WriteLong(net_tick);
 			senddata.WriteUBitLong(1, 1);
 
-			NET_SendDatagram(false);
 
+
+			Sleep(2000);
 			bconnectstep = 0;
 
 		}
@@ -1050,41 +1061,176 @@ int ProcessMessages(bf_read&msgs)
 }
 
 
+int HandleConnectionLessPacket(char*ip, short port, int connection_less, bf_read& recvdata)
+{
+	recvdata.ReadLong();
+
+	int header = 0;
+	int id = 0;
+	int total = 0;
+	int number = 0;
+	short splitsize = 0;
+
+	if (connection_less == 1)
+	{
+		header = recvdata.ReadByte();
+	}
+	else {
+		id = recvdata.ReadLong();
+		total = recvdata.ReadByte();
+		number = recvdata.ReadByte();
+		splitsize = recvdata.ReadByte();
+	}
+
+	switch (header)
+	{
+
+	case '9':
+	{
+		recvdata.ReadLong();
+
+		char error[1024];
+		recvdata.ReadString(error, 1024);
+		printf("Connection refused! [%s]\n", error);
+
+		NET_Reconnect();
+
+		return 0;
+	}
+	case 'A': // A2A_GETCHALLENGE
+	{
+		bconnectstep = 2;
+		long magicnumber = recvdata.ReadLong();
+
+		serverchallenge = recvdata.ReadLong();
+		ourchallenge = recvdata.ReadLong();
+		authprotocol = recvdata.ReadLong();
+
+		steamkey_encryptionsize = recvdata.ReadShort(); // gotta be 0
+
+		recvdata.ReadBytes(steamkey_encryptionkey, steamkey_encryptionsize);
+		recvdata.ReadBytes(serversteamid, sizeof(serversteamid));
+		vacsecured = recvdata.ReadByte();
+
+		printf("Challenge: %lu__%lu|Auth: %x|SKey: %lu|VAC: %x\n", serverchallenge, ourchallenge, authprotocol, steamkey_encryptionsize, vacsecured);
+
+		char connectpkg[700];
+		memset(connectpkg, 0, sizeof(connectpkg));
+
+		bf_write writeconnect(connectpkg, sizeof(connectpkg));
+		bf_read readsteamid(connectpkg, sizeof(connectpkg));
+
+		writeconnect.WriteLong(-1);
+		writeconnect.WriteByte('k');//C2S_CONNECT
+
+		writeconnect.WriteLong(0x18);//protocol ver
+
+		writeconnect.WriteLong(0x03);//auth protocol 0x03 = PROTOCOL_STEAM, 0x02 = PROTOCOL_HASHEDCDKEY, 0x01=PROTOCOL_AUTHCERTIFICATE
+		writeconnect.WriteLong(serverchallenge);
+		writeconnect.WriteLong(ourchallenge);
+
+		writeconnect.WriteUBitLong(2729496039, 32);
+
+		writeconnect.WriteString(nickname); //nick
+		writeconnect.WriteString(password); // pass
+		writeconnect.WriteString("2000"); // game version
+
+
+		unsigned char steamkey[STEAM_KEYSIZE];
+		unsigned int keysize = 0;
+
+		steamuser->GetAuthSessionTicket(steamkey, STEAM_KEYSIZE, &keysize);
+
+		CSteamID localsid = steamuser->GetSteamID();
+
+		writeconnect.WriteShort(242);
+		unsigned long long steamid64 = localsid.ConvertToUint64();
+		writeconnect.WriteLongLong(steamid64);
+
+		if (keysize)
+			writeconnect.WriteBytes(steamkey, keysize);
+
+		net.SendTo(ip, port, connectpkg, writeconnect.GetNumBytesWritten());
+
+
+		return 0;
+
+	}
+	case 'B': // S2C_CONNECTION
+	{
+
+		if (bconnectstep == 2)
+		{
+
+			bconnectstep = 3;
+			printf("Connected successfully\n");
+
+			netchan->Initialize();
+
+
+
+			senddata.WriteUBitLong(6, 6);
+			senddata.WriteByte(2);
+			senddata.WriteLong(-1);
+
+			senddata.WriteUBitLong(6, 6);
+			senddata.WriteString("VModEnable 1");
+			senddata.WriteUBitLong(6, 6);
+			senddata.WriteString("vban 0 0 0 0");
+
+			/*
+			senddata.WriteByte(31);
+			for (int i = 0; i < 31; i++)
+			{
+			senddata.WriteString("gm_snapangles");
+			senddata.WriteString("45");
+			}s
+			*/
+			NET_SendDatagram();
+
+			Sleep(3000);
+
+		}
+
+
+		return 0;
+	}
+
+	case 'I':
+	{
+		return 0;
+	}
+	default:
+	{
+		printf("Unknown message received from: %s, header: %i ( %c )\n", ip, header, header);
+		break;
+	}
+
+
+	}
+}
 int last_packet_received = 0;
 
-#include "utlbuffer.h"
 int networkthink()
 {
 
 	char netrecbuffer[NETBUFFER_SIZE];
 
+	
+	int msgsize = 0;
+	unsigned short port = 0;
+	char charip[25] = { 0 };
 
-	sockaddr_in from;
-#ifdef _WIN32
-	int size = sizeof(from);
-#else
-	unsigned int size = sizeof(from);
-#endif
-	int msgsize = recvfrom(serversock, netrecbuffer, NETBUFFER_SIZE, 0, (struct sockaddr *)&from, &size);
+	char*worked = net.Receive(&msgsize, &port, charip, netrecbuffer, NETBUFFER_SIZE);
 
-	if (msgsize <1)
+	if (!msgsize)
+		return 0;
+
+	if (!strstr(serverip, charip))
 	{
-
-		int err = lastneterror();
-		if (err != 10035 && err != 10054 && err != 11)
-		{
-			printf("recvfrom error: %i\n", err);
-
-			return 0;
-		}
-
-		return 1;
-
+		printf("ip mismatch\n");
+		return 0;
 	}
-
-	memset(charip, 0, sizeof(charip));
-	inet_ntop(AF_INET, &from.sin_addr, charip, INET_ADDRSTRLEN);
-	int port = (int)ntohs(from.sin_port);
 
 	bf_read recvdata(netrecbuffer, msgsize);
 	int header = recvdata.ReadLong();
@@ -1129,164 +1275,10 @@ int networkthink()
 
 	recvdata.Reset();
 
-	//printf("%s::%i\n", charip, port);
-
-	if (!strstr(serverip, charip))
-	{
-		//printf("ip mismatch\n");
-		return 0;
-	}
 
 	if (connection_less)
 	{
-
-		recvdata.ReadLong();
-
-		int header = 0;
-		int id = 0;
-		int total = 0;
-		int number = 0;
-		short splitsize = 0;
-
-		if (connection_less == 1)
-		{
-			header = recvdata.ReadByte();
-		}
-		else {
-			id = recvdata.ReadLong();
-			total = recvdata.ReadByte();
-			number = recvdata.ReadByte();
-			splitsize = recvdata.ReadByte();
-		}
-
-		switch (header)
-		{
-
-		case '9':
-		{
-			recvdata.ReadLong();
-
-			char error[1024];
-			recvdata.ReadString(error, 1024);
-			printf("Connection refused! [%s]\n", error);
-
-			NET_Reconnect();
-
-			return 0;
-		}
-		case 'A': // A2A_GETCHALLENGE
-		{
-			bconnectstep = 2;
-			long magicnumber = recvdata.ReadLong();
-
-			serverchallenge = recvdata.ReadLong();
-			ourchallenge = recvdata.ReadLong();
-			authprotocol = recvdata.ReadLong();
-
-			steamkey_encryptionsize = recvdata.ReadShort(); // gotta be 0
-
-			recvdata.ReadBytes(steamkey_encryptionkey, steamkey_encryptionsize);
-			recvdata.ReadBytes(serversteamid, sizeof(serversteamid));
-			vacsecured = recvdata.ReadByte();
-
-			printf("Challenge: %lu__%lu|Auth: %x|SKey: %lu|VAC: %x\n", serverchallenge, ourchallenge, authprotocol, steamkey_encryptionsize, vacsecured);
-
-			static char connectpkg[700];
-			memset(connectpkg, 0, sizeof(connectpkg));
-
-			bf_write writeconnect(connectpkg, sizeof(connectpkg));
-			bf_read readsteamid(connectpkg, sizeof(connectpkg));
-
-			writeconnect.WriteLong(-1);
-			writeconnect.WriteByte('k');//C2S_CONNECT
-
-			writeconnect.WriteLong(0x18);//protocol ver
-			
-			writeconnect.WriteLong(0x03);//auth protocol 0x03 = PROTOCOL_STEAM, 0x02 = PROTOCOL_HASHEDCDKEY, 0x01=PROTOCOL_AUTHCERTIFICATE
-			writeconnect.WriteLong(serverchallenge);
-			writeconnect.WriteLong(ourchallenge);
-
-			writeconnect.WriteUBitLong(2729496039, 32);
-
-			writeconnect.WriteString(nickname); //nick
-			writeconnect.WriteString(password); // pass
-			writeconnect.WriteString("2000"); // game version
-
-			unsigned char steamkey[STEAM_KEYSIZE];
-			unsigned int keysize = 0;
-
-			steamuser->GetAuthSessionTicket(steamkey, STEAM_KEYSIZE, &keysize);
-
-			CSteamID localsid = steamuser->GetSteamID();
-
-			writeconnect.WriteShort(242);
-			unsigned long long steamid64 = localsid.ConvertToUint64();
-			writeconnect.WriteLongLong(steamid64);
-
-
-
-			if (keysize)
-				writeconnect.WriteBytes(steamkey, keysize);
-
-			printf("CONNECTPKG: %i\n", writeconnect.GetNumBytesWritten());
-
-
-			SendTo(serversock, charip, port, connectpkg, writeconnect.GetNumBytesWritten());
-
-
-#ifdef DEBUG
-			printf("Replied with A2S_CONNECT\n");
-#endif // DEBUG
-			return 0;
-
-		}
-		case 'B': // S2C_CONNECTION
-		{
-
-			if (bconnectstep == 2)
-			{
-				bconnectstep = 3;
-				printf("Connected successfully\n");
-
-				netchan->Initialize();
-
-
-
-				senddata.WriteUBitLong(6, 6);
-				senddata.WriteByte(2);
-				senddata.WriteLong(-1);
-
-				//senddata.WriteUBitLong(5, 6);
-
-				/*
-				senddata.WriteByte(31);
-				for (int i = 0; i < 31; i++)
-				{
-					senddata.WriteString("gm_snapangles");
-					senddata.WriteString("45");
-				}
-				*/
-				NET_SendDatagram();
-			}
-
-
-			return 0;
-		}
-
-		case 'I':
-		{
-			return 0;
-		}
-		default:
-		{
-			printf("Unknown message received from: %s, header: %i ( %c )\n msg: %s\n", charip, header, header, netrecbuffer);
-			break;
-		}
-
-
-		}
-
-		return 0;
+		return HandleConnectionLessPacket(charip, port, connection_less, recvdata);
 	}
 
 	int flags = netchan->ProcessPacketHeader(msgsize, recvdata);
@@ -1382,7 +1374,7 @@ void* sendthread(void* shit)
 
 		int recdiff = (int)abs((double)diffclock(last_packet_received, clock()));
 
-		if (recdiff > 10000)
+		if (recdiff > 20000)
 		{
 			NET_Reconnect();
 		}
@@ -1400,7 +1392,7 @@ void* sendthread(void* shit)
 				writechallenge.WriteLong(ourchallenge);
 				writechallenge.WriteString("0000000000");
 
-				SendTo(serversock, serverip, serverport, challengepkg, writechallenge.GetNumBytesWritten());
+				net.SendTo(serverip, serverport, challengepkg, writechallenge.GetNumBytesWritten());
 				_sleep(500);
 			}
 
@@ -1411,7 +1403,7 @@ void* sendthread(void* shit)
 
 
 
-		if (!bconnectstep && !netchan->NeedsFragments() && recdiff >= 20 && !lastrecdiff)
+		if (!bconnectstep && !netchan->NeedsFragments() && recdiff >= 15 && !lastrecdiff)
 		{
 
 			NET_ResetDatagram();
@@ -1536,7 +1528,7 @@ void* sendthread(void* shit)
 			senddata.WriteUBitLong(net_hostframetime, 16);
 			senddata.WriteUBitLong(net_hostframedeviation, 16);
 
-			skipwalks = 12;
+			skipwalks = 50;//12 seems best
 		}
 		
 
@@ -1594,17 +1586,12 @@ void* sendthread(void* shit)
 
 		if (strlen(runcmd) > 0)
 		{
-			
+			printf("Sending cmd: %s\n", runcmd);
 
-				printf("Sending cmd: %s\n", runcmd);
+			senddata.WriteUBitLong(4, 6);
+			senddata.WriteString(runcmd);	
 
-				senddata.WriteUBitLong(4, 6);
-				senddata.WriteString(runcmd);	
-
-				memset(runcmd, 0, sizeof(runcmd));
-
-
-
+			memset(runcmd, 0, sizeof(runcmd));
 		}
 
 		NET_SendDatagram();
@@ -1642,93 +1629,9 @@ int parseip(const char*serverip_and_port, char*& ip, int& port)
 	return 1;
 }
 
-int main(int argc, const char *argv[])
+bool InitSteam()
 {
-
-	if (!argv[1] || !argv[2] || !argv[3] || !argv[4] || !argv[5])
-	{
-		printf("Invalid Params: server clientport nickname somethingrandom steamid64 [password] [spamcmd]\n");
-		return 0;
-	}
-
-	serverip = new char[50];
-
-	parseip(argv[1], serverip, serverport);//and this is the point where you call me a retard for not using strtok
-
-	clientport = atoi(argv[2]);
-
-	strcpy(nickname, argv[3]);
-
-
-	if (strlen(nickname) == 1)
-	{
-
-		memset(nickname, 0, sizeof(nickname));
-
-		for (int i = 0; i < 10; i++)
-			nickname[i] = 65 + rand() % 60;
-
-	}
-
-	steamid64 = _atoi64(argv[5]);
-
-	if (argv[6]&&strnlen(argv[6], 5)>0)
-	{
-		password = argv[6];
-	}
-	else {
-		argv[6] = "";
-	}
-
-	if (argv[7])
-	{
-		strcpy(runcmd, argv[7]);
-
-	}else {
-		argv[7] = "";
-	}
-
-	WSADATA wsaData;
-
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
-
-	serversock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-
-	int optval = 1;
-	int optlen = sizeof(optval);
-
-#ifdef _WIN32
-	unsigned long mode = 1;
-	setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, optlen);
-#else
-	setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, &optval, optlen);
-	setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, &optval, optlen);
-
-#endif
-
-	sockaddr_in add;
-	add.sin_family = AF_INET;
-	add.sin_addr.s_addr = htonl(INADDR_ANY);
-	add.sin_port = htons(clientport);
-
-	int ret = bind(serversock, reinterpret_cast<SOCKADDR *>(&add), sizeof(add));
-	if (ret < 0)
-	{
-		int err = lastneterror();
-		if (err == 10035)
-			return 1;
-
-		printf("lastneterror - bind failed %i\n", err);
-		return 1;
-	}
-
-	netchan->Initialize();
-	NET_ResetDatagram();
-
-	
-
-		CreateInterfaceFn fnApiInterface = g_SteamAPILoader.Load();
+	CreateInterfaceFn fnApiInterface = g_SteamAPILoader.Load();
 
 
 	if (!fnApiInterface)
@@ -1745,14 +1648,59 @@ int main(int argc, const char *argv[])
 
 	if (!(g_hSteamUser = steamclient->ConnectToGlobalUser(g_hSteamPipe)))
 		return false;
-	
+
 	if (!(steamuser = (ISteamUser017 *)steamclient->GetISteamUser(g_hSteamUser, g_hSteamPipe, STEAMUSER_INTERFACE_VERSION_017)))
 		return false;
 
-	if (!(clientaudio = (IClientAudio *)clientengine->GetIClientAudio(g_hSteamUser, g_hSteamPipe,CLIENTAUDIO_INTERFACE_VERSION)))
+	if (!(clientaudio = (IClientAudio *)clientengine->GetIClientAudio(g_hSteamUser, g_hSteamPipe, CLIENTAUDIO_INTERFACE_VERSION)))
 		return false;
 
-	printf("Connecting to %s:%i | client port: %i | Nick: %s | Pass: %s\n", serverip, serverport, clientport, nickname, password);
+	return true;
+}
+
+int main(int argc, const char *argv[])
+{
+
+	if (!argv[1] || !argv[2] || !argv[3] )
+	{
+		printf("Invalid Params: server clientport nickname [password]\n");
+		return 0;
+	}
+
+	serverip = new char[50];
+
+	parseip(argv[1], serverip, serverport);//and this is the point where you call me a retard for not using strtok
+
+	unsigned short clientport = atoi(argv[2]);
+
+	if (strnlen(argv[3], 2) != 0)
+	{
+		strcpy(nickname, argv[3]);
+	}
+	else {
+		strcpy(nickname, "leysourceengineclient");
+	}
+
+	if (strnlen(argv[4], 2) != 0)
+	{
+		strcpy(password, argv[4]);
+	}
+	else {
+		strcpy(password, "leysourceengineclient");
+	}
+
+	InitSteam();
+
+
+	printf("Connecting to %s:%i | client port: %hu | Nick: %s | Pass: %s\n", serverip, serverport, clientport, nickname, password);
+
+	netchan->Initialize();
+	NET_ResetDatagram();
+
+
+	net.Start();
+	net.OpenSocket(clientport);
+	net.SetNonBlocking(true);
 
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)networkthread, 0, 0, 0);
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)sendthread, 0, 0, 0);
@@ -1772,11 +1720,30 @@ int main(int argc, const char *argv[])
 				input[i] = 0xA;
 		}
 
-		if (strstr(input, "retry"))
+		if (!strcmp(input, "retry"))
 		{
 			NET_Disconnect();
 		}
 
+		if (!strcmp(input, "disconnect"))
+		{
+			NET_Disconnect();
+			exit(-1);
+		}
+
+		if (!strcmp(input, "voicemimic"))
+		{
+			voicemimic = !voicemimic;
+			printf("Voice mimic: %i\n", (int)voicemimic);
+
+		}
+
+		if (!strcmp(input, "voicetoggle"))
+		{
+			voicetoggle = !voicetoggle;
+			printf("Voice toggle: %i\n", (int)voicetoggle);
+
+		}
 		if (strstr(input, "connect "))
 		{
 
@@ -1932,10 +1899,7 @@ int main(int argc, const char *argv[])
 		_sleep(100);
 	}
 
-	if (serversock)
-		closesocket(serversock);
-
-	WSACleanup();
+	net.CloseSocket();
 
 	return 1;
 }
