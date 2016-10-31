@@ -14,7 +14,7 @@
 #include "osw/ISteamUser017.h"
 
 
-CSteamAPILoader g_SteamAPILoader;
+CSteamAPILoader *g_SteamAPILoader = 0;
 // Client handles
 HSteamPipe g_hSteamPipe;
 HSteamUser g_hSteamUser;
@@ -1631,7 +1631,9 @@ int parseip(const char*serverip_and_port, char*& ip, int& port)
 
 bool InitSteam()
 {
-	CreateInterfaceFn fnApiInterface = g_SteamAPILoader.Load();
+	g_SteamAPILoader = new CSteamAPILoader;
+
+	CreateInterfaceFn fnApiInterface = g_SteamAPILoader->GetSteam3Factory();
 
 
 	if (!fnApiInterface)
