@@ -1675,7 +1675,7 @@ int main(int argc, const char *argv[])
 
 	unsigned short clientport = atoi(argv[2]);
 
-	if (strnlen(argv[3], 2) != 0)
+	if (argv[3] && strnlen(argv[3], 2) != 0)
 	{
 		strcpy(nickname, argv[3]);
 	}
@@ -1683,7 +1683,7 @@ int main(int argc, const char *argv[])
 		strcpy(nickname, "leysourceengineclient");
 	}
 
-	if (strnlen(argv[4], 2) != 0)
+	if (argv[4] && strnlen(argv[4], 2) != 0)
 	{
 		strcpy(password, argv[4]);
 	}
