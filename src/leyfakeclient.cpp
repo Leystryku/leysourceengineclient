@@ -323,7 +323,7 @@ bool HandleMessage(bf_read &msg, int type)
 
 			senddata.WriteUBitLong(8, 6);
 			senddata.WriteLong(netchan->m_iServerCount);
-			senddata.WriteLong(-2030366758);//clc_ClientInfo crc
+			senddata.WriteLong(-1343288453);//clc_ClientInfo crc
 			senddata.WriteOneBit(1);//ishltv
 			senddata.WriteLong(1337);
 
