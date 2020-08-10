@@ -3,4 +3,4 @@ I used to use it for trying out exploits, but this could be turned into a full r
 However, the code could be cleaned up a bit.
 Use it for whatever you want, just make sure to credit me.
 
-I Romian "Leystryku" Transtru hereby place this project and its code to public domain
+I hereby place this project and its code to public domain
