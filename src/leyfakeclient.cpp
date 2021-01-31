@@ -10,14 +10,13 @@
 #include "leychan.h"
 #include "leynet.h"
 #include "steam.h"
+#include "commandline.h"
+
+leychan netchan;
+leynet_udp net;
 
 Steam* steam = 0;
-
-extern leychan* netchan;
-
-#ifdef _WIN32
-#define _sleep Sleep
-#endif
+CommandLine* commandline = 0;
 
 int serverport = 27015;
 
@@ -32,23 +31,19 @@ int bconnectstep = 1;
 
 char runcmd[255];
 
-leychan* netchan = new leychan;
-
 long net_tick;
 unsigned int net_hostframetime;
 unsigned int net_hostframedeviation;
 
 bool voicemimic = false;
-bool voicetoggle = false;
-
-leynet_udp net;
 
 
-static double diffclock(clock_t clock1, clock_t clock2)
+
+static long diffclock(clock_t clock1, clock_t clock2)
 {
-	double diffticks = clock1 - clock2;
-	double diffms = (diffticks) / (CLOCKS_PER_SEC / 1000);
-	return diffms;
+	clock_t diffticks = clock1 - clock2;
+	clock_t diffms = (diffticks) / (CLOCKS_PER_SEC / 1000);
+	return (long)diffms;
 }
 
 #define NETBUFFER_SIZE 0xFFFF
@@ -81,8 +76,8 @@ inline bool NET_SendDatagram(bool subchans = false)
 	}
 	unsigned char flags = 0;
 
-	netdatagram.WriteLong(netchan->m_nOutSequenceNr); // outgoing sequence
-	netdatagram.WriteLong(netchan->m_nInSequenceNr); // incoming sequence
+	netdatagram.WriteLong(netchan.m_nOutSequenceNr); // outgoing sequence
+	netdatagram.WriteLong(netchan.m_nInSequenceNr); // incoming sequence
 
 	bf_write flagpos = netdatagram;
 
@@ -93,7 +88,7 @@ inline bool NET_SendDatagram(bool subchans = false)
 
 
 
-	netdatagram.WriteByte(netchan->m_nInReliableState);
+	netdatagram.WriteByte(netchan.m_nInReliableState);
 
 
 	if (subchans)
@@ -128,7 +123,7 @@ inline bool NET_SendDatagram(bool subchans = false)
 			unsigned short usCheckSum = leychan::BufferToShortChecksum(pvData, nCheckSumBytes);
 			flagpos.WriteUBitLong(usCheckSum, 16);
 
-			netchan->m_nOutSequenceNr++;
+			netchan.m_nOutSequenceNr++;
 
 			net.SendTo(serverip, serverport, datagram, netdatagram.GetNumBytesWritten());
 		}
@@ -156,12 +151,12 @@ void GenerateLeyFile(const char* file, const char* txt)
 {
 
 
-	printf("OUTGOING: %i\n", netchan->m_nOutSequenceNr);
+	printf("OUTGOING: %i\n", netchan.m_nOutSequenceNr);
 
 
 	int nCheckSumStart = senddata.GetNumBytesWritten();
 
-	senddata.WriteUBitLong(netchan->m_nInReliableState, 3);//m_nInReliableState
+	senddata.WriteUBitLong(netchan.m_nInReliableState, 3);//m_nInReliableState
 	senddata.WriteOneBit(1);//subchannel
 	senddata.WriteOneBit(1); // data follows( if 0 = singleblock )
 	senddata.WriteUBitLong(0, MAX_FILE_SIZE_BITS - FRAGMENT_BITS);// startFragment
@@ -193,7 +188,7 @@ void NET_Disconnect()
 
 void NET_Reconnect()
 {
-	_sleep(500);
+	Sleep(500);
 
 	printf("Reconnecting..\n");
 
@@ -230,7 +225,7 @@ bool HandleMessage(bf_read& msg, int type)
 		printf("Disconnected: %s\n", dcreason);
 		printf("Reconnecting in 100 ms ...");
 
-		_sleep(100);
+		Sleep(100);
 		NET_Reconnect();
 		return true;
 	}
@@ -297,21 +292,21 @@ bool HandleMessage(bf_read& msg, int type)
 
 		printf("Received net_SignOnState: %i, count: %i\n", state, bconnectstep);
 
-		if (netchan->m_iSignOnState == state)
+		if (netchan.m_iSignOnState == state)
 		{
 			printf("Ignored signonstate!\n");
 			return true;
 		}
 
-		netchan->m_iServerCount = aservercount;
-		netchan->m_iSignOnState = state;
+		netchan.m_iServerCount = aservercount;
+		netchan.m_iSignOnState = state;
 
 		printf("KK __ %i\n", state);
 		if (state == 3)
 		{
 
 			senddata.WriteUBitLong(8, 6);
-			senddata.WriteLong(netchan->m_iServerCount);
+			senddata.WriteLong(netchan.m_iServerCount);
 			senddata.WriteLong(-1343288453);//clc_ClientInfo crc
 			senddata.WriteOneBit(1);//ishltv
 			senddata.WriteLong(1337);
@@ -412,7 +407,7 @@ bool HandleMessage(bf_read& msg, int type)
 
 		printf("ServerInfo, players: %lu/%lu | map: %s | name: %s | gm: %s | count: %i | left: %i | step: %i\n", players, maxplayers, levelname, hostname, gamemode, servercount, msg.GetNumBitsLeft(), bconnectstep);
 
-		netchan->m_iServerCount = servercount;
+		netchan.m_iServerCount = servercount;
 		bconnectstep = 4;
 
 		return true;
@@ -559,42 +554,6 @@ bool HandleMessage(bf_read& msg, int type)
 
 		char* voicedata = new char[(bits + 8) / 8];
 		msg.ReadBits(voicedata, bits);
-
-		if (voicetoggle)
-		{
-			char* uncompressed = new char[0xFFFF];
-			unsigned int uncompressed_size = 0;
-
-			/*
-			EVoiceResult worked = clientaudio->DecompressVoice(voicedata, bits / 8, uncompressed, 0xFFFF, &uncompressed_size, clientaudio->GetVoiceOptimalSampleRate());
-
-			if (worked == k_EVoiceResultOK)
-			{
-
-				HWAVEOUT hWaveOut = 0;
-				WAVEHDR header = { uncompressed, uncompressed_size, 0, 0, 0, 0, 0, 0 };
-
-				WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, 1, clientaudio->GetVoiceOptimalSampleRate(), clientaudio->GetVoiceOptimalSampleRate() * 2, 2, 16, sizeof(WAVEFORMATEX) };
-				waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
-
-				waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-				waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
-
-				waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-				waveOutClose(hWaveOut);
-			}
-			else {
-				printf("RIP AUDIO: %i\n", worked);
-				delete[] uncompressed;
-			}*/
-
-
-			delete[] voicedata;
-
-		}
-
-
-
 
 
 		if (voicemimic)
@@ -850,38 +809,9 @@ bool HandleMessage(bf_read& msg, int type)
 
 		if (bconnectstep)
 		{
-			/*
-
-			leynet_tcp tcp;
-			printf("TCP TIME2\n");
-			tcp.OpenConnection(serverip, serverport);//is that really the tcp port
-			printf("CONNECTED: %s __ %i\n", serverip, serverport);
-
-			senddata.Reset();
-
-			memset(netsendbuffer, 0xFF, NETBUFFER_SIZE);
-
-			tcp.Send("\x09", 1);
-			Sleep(100);
-
-
-			senddata.WriteUBitLong(10, 6);
-			senddata.WriteWord(0xFFFF);
-
-
-
-			for (int i = 0; i < 1000; i++)
-			{
-				senddata.WriteOneBit(i%2==0);
-			}
-
-
-				tcp.Send((const char*)senddata.GetData(), senddata.GetNumBytesWritten());
-
-				*/
 			senddata.WriteUBitLong(6, 6);
 			senddata.WriteByte(6);
-			senddata.WriteLong(netchan->m_iServerCount);
+			senddata.WriteLong(netchan.m_iServerCount);
 
 			senddata.WriteUBitLong(11, 6);
 			senddata.WriteLong(net_tick);
@@ -1156,7 +1086,7 @@ int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_rea
 			bconnectstep = 3;
 			printf("Connected successfully\n");
 
-			netchan->Initialize();
+			netchan.Initialize();
 
 
 
@@ -1233,7 +1163,7 @@ int networkthink()
 	{
 		printf("SPLIT\n");
 
-		if (!netchan->HandleSplitPacket(netrecbuffer, msgsize, recvdata))
+		if (!netchan.HandleSplitPacket(netrecbuffer, msgsize, recvdata))
 			return 0;
 
 		header = recvdata.ReadLong();
@@ -1270,7 +1200,7 @@ int networkthink()
 		return HandleConnectionLessPacket(charip, port, connection_less, recvdata);
 	}
 
-	int flags = netchan->ProcessPacketHeader(msgsize, recvdata);
+	int flags = netchan.ProcessPacketHeader(msgsize, recvdata);
 
 	if (flags == -1)
 	{
@@ -1295,7 +1225,7 @@ int networkthink()
 
 			if (recvdata.ReadOneBit() != 0)
 			{
-				if (!netchan->ReadSubChannelData(recvdata, i))
+				if (!netchan.ReadSubChannelData(recvdata, i))
 				{
 					return 0;
 				}
@@ -1303,11 +1233,11 @@ int networkthink()
 		}
 
 
-		FLIPBIT(netchan->m_nInReliableState, bit);
+		FLIPBIT(netchan.m_nInReliableState, bit);
 
 		for (i = 0; i < MAX_STREAMS; i++)
 		{
-			if (!netchan->CheckReceivingList(i))
+			if (!netchan.CheckReceivingList(i))
 			{
 				return 0;
 			}
@@ -1326,7 +1256,7 @@ int networkthink()
 
 	static bool neededfragments = false;
 
-	if (netchan->NeedsFragments() || flags & PACKET_FLAG_TABLES)
+	if (netchan.NeedsFragments() || flags & PACKET_FLAG_TABLES)
 	{
 		neededfragments = true;
 		NET_RequestFragments();
@@ -1357,11 +1287,9 @@ void* sendthread(void* shit)
 
 	while (true)
 	{
+		Sleep(1);
 
-
-		_sleep(1);
-
-		int recdiff = (int)abs((double)diffclock(last_packet_received, clock()));
+		int recdiff = (int)abs(diffclock(last_packet_received, clock()));
 
 		if (recdiff > 20000)
 		{
@@ -1382,17 +1310,17 @@ void* sendthread(void* shit)
 				writechallenge.WriteString("0000000000");
 
 				net.SendTo(serverip, serverport, challengepkg, writechallenge.GetNumBytesWritten());
-				_sleep(500);
+				Sleep(500);
 			}
 
-			_sleep(500);
+			Sleep(500);
 
 		}
 
 
 
 
-		if (!bconnectstep && !netchan->NeedsFragments() && recdiff >= 15 && !lastrecdiff)
+		if (!bconnectstep && !netchan.NeedsFragments() && recdiff >= 15 && !lastrecdiff)
 		{
 
 			NET_ResetDatagram();
@@ -1408,7 +1336,7 @@ void* sendthread(void* shit)
 			lastrecdiff = false;
 		}
 
-		if (netchan->m_nInSequenceNr < 130)
+		if (netchan.m_nInSequenceNr < 130)
 		{
 			NET_SendDatagram();//netchan is volatile without this for some reason
 			continue;
@@ -1609,36 +1537,17 @@ int parseip(char* ipwithport, char*& ip, int& port)
 
 int main(int argc, const char* argv[])
 {
-
-	if (!argv[1] || !argv[2] || !argv[3])
-	{
-		printf("Invalid Params: server clientport nickname [password]\n");
-		return 0;
-	}
-
-	serverip = new char[50];
-
-	parseip((char*)argv[1], serverip, serverport);
-
-	unsigned short clientport = atoi(argv[2]);
-
-	if (argv[3] && strnlen(argv[3], 2) != 0)
-	{
-		strcpy(nickname, argv[3]);
-	}
-	else {
-		strcpy(nickname, "leysourceengineclient");
-	}
-
-	if (argv[4] && strnlen(argv[4], 2) != 0)
-	{
-		strcpy(password, argv[4]);
-	}
-	else {
-		strcpy(password, "leysourceengineclient");
-	}
-
+	commandline = new CommandLine;
 	steam = new Steam;
+
+	commandline->InitParams(argv, argc);
+
+	std::string serverip = commandline->GetParameterString("-serverip");
+	unsigned short serverport = commandline->GetParameterNumber("-serverport");
+	unsigned short clientport = commandline->GetParameterNumber("-clientport", true, 47015);
+	std::string nickname = commandline->GetParameterString("-nickname", true, "leysourceengineclient");
+	std::string password = commandline->GetParameterString("-password", true, "");
+
 	int err = steam->Initiate();
 
 	if (err)
@@ -1647,9 +1556,16 @@ int main(int argc, const char* argv[])
 	}
 
 
-	printf("Connecting to %s:%i | client port: %hu | Nick: %s | Pass: %s\n", serverip, serverport, clientport, nickname, password);
+	printf(
+		"Connecting to %s:%i | client port: %hu | Nick: %s | Pass: %s\n",
+		serverip.c_str(),
+		serverport,
+		clientport,
+		nickname.c_str(),
+		password.c_str()
+	);
 
-	netchan->Initialize();
+	netchan.Initialize();
 	NET_ResetDatagram();
 
 
@@ -1693,16 +1609,10 @@ int main(int argc, const char* argv[])
 
 		}
 
-		if (!strcmp(input, "voicetoggle"))
-		{
-			voicetoggle = !voicetoggle;
-			printf("Voice toggle: %i\n", (int)voicetoggle);
-
-		}
 		if (strstr(input, "connect "))
 		{
 
-
+			/*
 			memmove(input, input + strlen("connect "), sizeof(input));
 
 			parseip(input, serverip, serverport);
@@ -1711,7 +1621,8 @@ int main(int argc, const char* argv[])
 
 
 			NET_Reconnect();
-			_sleep(100);
+			Sleep(100);
+			*/
 			continue;
 
 		}
@@ -1833,6 +1744,7 @@ int main(int argc, const char* argv[])
 
 		if (strstr(input, "name "))
 		{
+			/*
 			memset(nickname, 0, sizeof(nickname));
 
 			memmove(nickname, input + strlen("name "), sizeof(input));
@@ -1846,15 +1758,16 @@ int main(int argc, const char* argv[])
 			NET_SendDatagram(false);
 
 			printf("Changed name to: %s\n", nickname);
+			*/
 			continue;
 
 		}
 
 		memset(input, 0, sizeof(input));
-		_sleep(100);
+		Sleep(100);
 	}
 
 	net.CloseSocket();
 
-	return 1;
+	return 0;
 }

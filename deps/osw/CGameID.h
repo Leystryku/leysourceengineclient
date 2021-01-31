@@ -20,7 +20,13 @@
 #pragma once
 #endif
 
-inline unsigned int Q_strlen(const char*a)
+#include <assert.h>
+
+#ifndef Assert
+#define Assert(eval) assert(eval);
+#endif
+
+inline unsigned int Q_strlen(const char* a)
 {
 	return strlen((const char*)a);
 }
@@ -31,7 +37,7 @@ inline unsigned int Q_strlen(const char*a)
 #define PATHSEPARATOR(c) ((c) == '/')
 #endif	//_WIN32
 
-inline void Q_FileBase(const char *in, char *out, int maxlen)
+inline void Q_FileBase(const char* in, char* out, int maxlen)
 {
 	Assert(maxlen >= 1);
 	Assert(in);
@@ -49,7 +55,7 @@ inline void Q_FileBase(const char *in, char *out, int maxlen)
 
 	// scan backward for '.'
 	end = len - 1;
-	while (end&& in[end] != '.' && !PATHSEPARATOR(in[end]))
+	while (end && in[end] != '.' && !PATHSEPARATOR(in[end]))
 	{
 		end--;
 	}
@@ -103,24 +109,24 @@ public:
 		m_gameID.m_nModID = 0;
 	}
 
-	explicit CGameID( uint64 ulGameID )
+	explicit CGameID(uint64 ulGameID)
 	{
 		m_ulGameID = ulGameID;
 	}
 
-	explicit CGameID( int32 nAppID )
+	explicit CGameID(int32 nAppID)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = nAppID;
 	}
 
-	explicit CGameID( uint32 nAppID )
+	explicit CGameID(uint32 nAppID)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = nAppID;
 	}
 
-	CGameID( uint32 nAppID, uint32 nModID )
+	CGameID(uint32 nAppID, uint32 nModID)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = nAppID;
@@ -129,24 +135,24 @@ public:
 	}
 
 	// Hidden functions used only by Steam
-	explicit CGameID( const char *pchGameID );
-	const char *Render() const;					// render this Game ID to string
-	static const char *Render( uint64 ulGameID );		// static method to render a uint64 representation of a Game ID to a string
+	explicit CGameID(const char* pchGameID);
+	const char* Render() const;					// render this Game ID to string
+	static const char* Render(uint64 ulGameID);		// static method to render a uint64 representation of a Game ID to a string
 
 	// must include checksum_crc.h first to get this functionality
 #if defined( CHECKSUM_CRC_H )
-	CGameID( uint32 nAppID, const char *pchModPath )
+	CGameID(uint32 nAppID, const char* pchModPath)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = nAppID;
 		m_gameID.m_nType = k_EGameIDTypeGameMod;
 
 		char rgchModDir[MAX_PATH];
-		Q_FileBase( pchModPath, rgchModDir, sizeof( rgchModDir ) );
+		Q_FileBase(pchModPath, rgchModDir, sizeof(rgchModDir));
 		CRC32_t crc32;
-		CRC32_Init( &crc32 );
-		CRC32_ProcessBuffer( &crc32, rgchModDir, Q_strlen( rgchModDir ) );
-		CRC32_Final( &crc32 );
+		CRC32_Init(&crc32);
+		CRC32_ProcessBuffer(&crc32, rgchModDir, Q_strlen(rgchModDir));
+		CRC32_Final(&crc32);
 
 		// set the high-bit on the mod-id 
 		// reduces crc32 to 31bits, but lets us use the modID as a guaranteed unique
@@ -154,17 +160,17 @@ public:
 		m_gameID.m_nModID = crc32 | (0x80000000);
 	}
 
-	CGameID( const char *pchExePath, const char *pchAppName )
+	CGameID(const char* pchExePath, const char* pchAppName)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = k_uAppIdInvalid;
 		m_gameID.m_nType = k_EGameIDTypeShortcut;
 
 		CRC32_t crc32;
-		CRC32_Init( &crc32 );
-		CRC32_ProcessBuffer( &crc32, (void*)pchExePath, Q_strlen( pchExePath ) );
-		CRC32_ProcessBuffer( &crc32, (void*)pchAppName, Q_strlen( pchAppName ) );
-		CRC32_Final( &crc32 );
+		CRC32_Init(&crc32);
+		CRC32_ProcessBuffer(&crc32, (void*)pchExePath, Q_strlen(pchExePath));
+		CRC32_ProcessBuffer(&crc32, (void*)pchAppName, Q_strlen(pchAppName));
+		CRC32_Final(&crc32);
 
 		// set the high-bit on the mod-id 
 		// reduces crc32 to 31bits, but lets us use the modID as a guaranteed unique
@@ -174,22 +180,22 @@ public:
 
 #if defined( VSTFILEID_H )
 
-	CGameID( VstFileID vstFileID )
+	CGameID(VstFileID vstFileID)
 	{
 		m_ulGameID = 0;
 		m_gameID.m_nAppID = k_uAppIdInvalid;
 		m_gameID.m_nType = k_EGameIDTypeP2P;
 
 		CRC32_t crc32;
-		CRC32_Init( &crc32 );
-		const char *pchFileId = vstFileID.Render();
-		CRC32_ProcessBuffer( &crc32, pchFileId, Q_strlen( pchFileId ) );
-		CRC32_Final( &crc32 );
+		CRC32_Init(&crc32);
+		const char* pchFileId = vstFileID.Render();
+		CRC32_ProcessBuffer(&crc32, pchFileId, Q_strlen(pchFileId));
+		CRC32_Final(&crc32);
 
 		// set the high-bit on the mod-id 
 		// reduces crc32 to 31bits, but lets us use the modID as a guaranteed unique
 		// replacement for appID's
-		m_gameID.m_nModID = crc32 | (0x80000000);		
+		m_gameID.m_nModID = crc32 | (0x80000000);
 	}
 
 #endif /* VSTFILEID_H */
@@ -202,31 +208,31 @@ public:
 		return m_ulGameID;
 	}
 
-	uint64 *GetUint64Ptr()
+	uint64* GetUint64Ptr()
 	{
 		return &m_ulGameID;
 	}
 
 	bool IsMod() const
 	{
-		return ( m_gameID.m_nType == k_EGameIDTypeGameMod );
+		return (m_gameID.m_nType == k_EGameIDTypeGameMod);
 	}
 
 	bool IsShortcut() const
 	{
-		return ( m_gameID.m_nType == k_EGameIDTypeShortcut );
+		return (m_gameID.m_nType == k_EGameIDTypeShortcut);
 	}
 
 	bool IsP2PFile() const
 	{
-		return ( m_gameID.m_nType == k_EGameIDTypeP2P );
+		return (m_gameID.m_nType == k_EGameIDTypeP2P);
 	}
 
 	bool IsSteamApp() const
 	{
-		return ( m_gameID.m_nType == k_EGameIDTypeApp );
+		return (m_gameID.m_nType == k_EGameIDTypeApp);
 	}
-		
+
 	uint32 ModID() const
 	{
 		return m_gameID.m_nModID;
@@ -237,25 +243,25 @@ public:
 		return m_gameID.m_nAppID;
 	}
 
-	bool operator == ( const CGameID &rhs ) const
+	bool operator == (const CGameID& rhs) const
 	{
 		return m_ulGameID == rhs.m_ulGameID;
 	}
 
-	bool operator != ( const CGameID &rhs ) const
+	bool operator != (const CGameID& rhs) const
 	{
 		return !(*this == rhs);
 	}
 
-	bool operator < ( const CGameID &rhs ) const
+	bool operator < (const CGameID& rhs) const
 	{
-		return ( m_ulGameID < rhs.m_ulGameID );
+		return (m_ulGameID < rhs.m_ulGameID);
 	}
 
 	bool IsValid() const
 	{
 		// each type has it's own invalid fixed point:
-		switch( m_gameID.m_nType )
+		switch (m_gameID.m_nType)
 		{
 		case k_EGameIDTypeApp:
 			return m_gameID.m_nAppID != k_uAppIdInvalid;
@@ -278,7 +284,7 @@ public:
 
 	}
 
-	void Reset() 
+	void Reset()
 	{
 		m_ulGameID = 0;
 	}
@@ -289,10 +295,10 @@ private:
 
 	enum EGameIDType
 	{
-		k_EGameIDTypeApp		= 0,
-		k_EGameIDTypeGameMod	= 1,
-		k_EGameIDTypeShortcut	= 2,
-		k_EGameIDTypeP2P		= 3,
+		k_EGameIDTypeApp = 0,
+		k_EGameIDTypeGameMod = 1,
+		k_EGameIDTypeShortcut = 2,
+		k_EGameIDTypeP2P = 3,
 	};
 
 	struct GameID_t

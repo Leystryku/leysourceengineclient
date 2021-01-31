@@ -21,7 +21,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -78,7 +78,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>NDEBUG;_GENERIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_GENERIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DebugInformationFormat>None</DebugInformationFormat>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -95,14 +95,16 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;ws2_32.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\commandline.h" />
     <ClInclude Include="..\src\leychan.h" />
     <ClInclude Include="..\src\leychandefs.h" />
     <ClInclude Include="..\src\leynet.h" />
+    <ClInclude Include="..\src\steam.h" />
     <ClInclude Include="..\src\valve\buf.h" />
     <ClInclude Include="..\src\valve\checksum_crc.h" />
     <ClInclude Include="..\src\valve\clzss.h" />
@@ -112,9 +114,11 @@
     <ClInclude Include="..\src\vector.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\commandline.cpp" />
     <ClCompile Include="..\src\leychan.cpp" />
     <ClCompile Include="..\src\leyfakeclient.cpp" />
     <ClCompile Include="..\src\leynet.cpp" />
+    <ClCompile Include="..\src\steam.cpp" />
     <ClCompile Include="..\src\valve\buf.cpp" />
     <ClCompile Include="..\src\valve\checksum_crc.cpp" />
     <ClCompile Include="..\src\valve\clzss.cpp" />

@@ -7,15 +7,15 @@
 #include "steam.h"
 
 
-std::string Steam::GetSteamInstallFolder()
+std::wstring Steam::GetSteamInstallFolder()
 {
-	char installfolder[MAX_PATH];
+	wchar_t installfolder[MAX_PATH];
 	unsigned long bufferlength = sizeof(installfolder);
 	unsigned long type = REG_SZ;
 
 	if (SHGetValue(HKEY_CURRENT_USER, TEXT("Software\\Valve\\Steam"), TEXT("SteamPath"), &type, installfolder, &bufferlength) != ERROR_SUCCESS)
 	{
-		MessageBox(0, "Could not find Steam Install directory in:\n HKEY_CURRENT_USER\\Software\\Valve\\Steam\\SteamPath)\n", "leysourceengineclient - GetSteamInstallFolder", MB_OK);
+		MessageBox(0, L"Could not find Steam Install directory in:\n HKEY_CURRENT_USER\\Software\\Valve\\Steam\\SteamPath)\n", L"leysourceengineclient - GetSteamInstallFolder", MB_OK);
 	}
 
 	return installfolder;
@@ -30,9 +30,9 @@ int Steam::Initiate()
 {
 	SetDllDirectory(GetSteamInstallFolder().c_str());
 
-	HMODULE steam = LoadLibrary("steam");
-	HMODULE steamapi = LoadLibrary("steam_api");
-	HMODULE steamclientdll = LoadLibrary("steamclient");
+	HMODULE steam = LoadLibrary(L"steam");
+	HMODULE steamapi = LoadLibrary(L"steam_api");
+	HMODULE steamclientdll = LoadLibrary(L"steamclient");
 
 	if (!steamclientdll)
 	{

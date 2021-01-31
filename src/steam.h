@@ -9,7 +9,7 @@ class ISteamUser017;
 class Steam
 {
 public:
-	static std::string GetSteamInstallFolder();
+	static std::wstring GetSteamInstallFolder();
 
 	ISteamUser017* GetSteamUser();
 
