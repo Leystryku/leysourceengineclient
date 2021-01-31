@@ -3,14 +3,17 @@ solution "leysourceengineclient"
    location "project"
    targetdir "build/release"
 
-   flags { "Optimize", "NoMinimalRebuild", "NoFramePointer", "EnableSSE2", "FloatFast", "NoBufferSecurityCheck"}
+   flags { "NoMinimalRebuild", "NoBufferSecurityCheck"}
 
-   if os.is("linux") or os.is("macosx") then
+   symbols "On"
+   optimize "On"
+   omitframepointer "On"
+   vectorextensions "SSE2"
+   floatingpoint "Fast"
+
+   if os.istarget("linux") or os.istarget("macosx") then
       buildoptions {"-m32 -fPIC -ldl -lstdc++"}
       linkoptions  {"-m32 -fPIC -ldl -lstdc++"}
-   else
-      --buildoptions({"/Qpar", "/Qfast_transcendentals", "/GL", "/Ox", "/Gm", "/MP", "/MD", "/Gy", "/Gw"})
-      --linkoptions { "/OPT:REF", "/OPT:ICF", "/LTCG"}
    end
 
    vpaths {
@@ -23,20 +26,20 @@ solution "leysourceengineclient"
    configurations { "Debug", "Release" }
 
    files { "src/**.h", "src/**.cpp" }
-   
-   includedirs { }
+
    libdirs {"libs/"}
-   links { "ws2_32", "winmm" }
-   
-   
+   links { "Shlwapi", "ws2_32", "winmm" }
+
    -- A project defines one build target
    project "leysourceengineclient"
       targetname "leysourceengineclient"
 
       configuration "Release"
-         defines { "NDEBUG", "_GENERIC" }
-         
+         defines { "_CRT_SECURE_NO_WARNINGS", "NDEBUG", "_GENERIC" }
+         symbols "Off"
+         targetdir "build/release"
+
       configuration "Debug"
-         defines { "DEBUG", "_GENERIC" }
-         flags { "Symbols", "EnableSSE2" }
+         defines { "_CRT_SECURE_NO_WARNINGS", "DEBUG", "_GENERIC" }
+         optimize "Off"
          targetdir "build/debug"

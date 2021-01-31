@@ -6,11 +6,16 @@
 //
 //=============================================================================//
 
-#include "buf.h"
 #include <memory>
+#include <assert.h>
 
 #include <intrin.h>
+#include "buf.h"
+#include "../../deps/osw/SteamTypes.h"
 
+#ifndef Assert
+#define Assert(eval) assert(eval);
+#endif
 
 #define LOG2_BITS_PER_INT	5
 #define BITS_PER_INT		32
@@ -95,7 +100,7 @@ inline int GetBitForBitnum(int bitNum)
 		(1 << 31),
 	};
 
-	return bitsForBitnum[(bitNum)& (BITS_PER_INT - 1)];
+	return bitsForBitnum[(bitNum) & (BITS_PER_INT - 1)];
 }
 
 inline int GetBitForBitnumByte(int bitNum)
@@ -164,7 +169,7 @@ inline int BitForBitnum(int bitnum)
 	return GetBitForBitnum(bitnum);
 }
 
-void InternalBitBufErrorHandler(BitBufErrorType errorType, const char *pDebugName)
+void InternalBitBufErrorHandler(BitBufErrorType errorType, const char* pDebugName)
 {
 	if (g_BitBufErrorHandler)
 		g_BitBufErrorHandler(errorType, pDebugName);
@@ -230,21 +235,21 @@ bf_write::bf_write()
 	m_pDebugName = NULL;
 }
 
-bf_write::bf_write(const char *pDebugName, void *pData, int nBytes, int nBits)
+bf_write::bf_write(const char* pDebugName, void* pData, int nBytes, int nBits)
 {
 	m_bAssertOnOverflow = true;
 	m_pDebugName = pDebugName;
 	StartWriting(pData, nBytes, 0, nBits);
 }
 
-bf_write::bf_write(void *pData, int nBytes, int nBits)
+bf_write::bf_write(void* pData, int nBytes, int nBits)
 {
 	m_bAssertOnOverflow = true;
 	m_pDebugName = NULL;
 	StartWriting(pData, nBytes, 0, nBits);
 }
 
-void bf_write::StartWriting(void *pData, int nBytes, int iStartBit, int nBits)
+void bf_write::StartWriting(void* pData, int nBytes, int iStartBit, int nBits)
 {
 	// Make sure it's dword aligned and padded.
 	Assert((nBytes % 4) == 0);
@@ -289,7 +294,7 @@ const char* bf_write::GetDebugName()
 }
 
 
-void bf_write::SetDebugName(const char *pDebugName)
+void bf_write::SetDebugName(const char* pDebugName)
 {
 	m_pDebugName = pDebugName;
 }
@@ -317,9 +322,9 @@ void bf_write::WriteSBitLong(int data, int numbits)
 void bf_write::WriteVarInt32(uint32 data)
 {
 	// Check if align and we have room, slow path if not
-	if ((m_iCurBit & 7) == 0 && (m_iCurBit + bitbuf::kMaxVarint32Bytes * 8) <= m_nDataBits)
+	if ((m_iCurBit & 7) == 0 && (m_iCurBit + bitbuf::kMaxVarInt32Bytes * 8) <= m_nDataBits)
 	{
-		uint8 *target = ((uint8*)m_pData) + (m_iCurBit >> 3);
+		uint8* target = ((uint8*)m_pData) + (m_iCurBit >> 3);
 
 		target[0] = static_cast<uint8>(data | 0x80);
 		if (data >= (1 << 7))
@@ -381,7 +386,7 @@ void bf_write::WriteVarInt64(uint64 data)
 	// Check if align and we have room, slow path if not
 	if ((m_iCurBit & 7) == 0 && (m_iCurBit + bitbuf::kMaxVarintBytes * 8) <= m_nDataBits)
 	{
-		uint8 *target = ((uint8*)m_pData) + (m_iCurBit >> 3);
+		uint8* target = ((uint8*)m_pData) + (m_iCurBit >> 3);
 
 		// Splitting into 32-bit pieces gives better performance on 32-bit
 		// processors.
@@ -536,13 +541,13 @@ void bf_write::WriteBitLong(unsigned int data, int numbits, bool bSigned)
 		WriteUBitLong(data, numbits);
 }
 
-bool bf_write::WriteBits(const void *pInData, int nBits)
+bool bf_write::WriteBits(const void* pInData, int nBits)
 {
 #if defined( BB_PROFILING )
 	VPROF("bf_write::WriteBits");
 #endif
 
-	unsigned char *pOut = (unsigned char*)pInData;
+	unsigned char* pOut = (unsigned char*)pInData;
 	int nBitsLeft = nBits;
 
 	// Bounds checking..
@@ -582,7 +587,7 @@ bool bf_write::WriteBits(const void *pInData, int nBits)
 		unsigned long bitMaskLeft = g_BitWriteMasks[iBitsRight][32];
 		unsigned long bitMaskRight = g_BitWriteMasks[0][iBitsRight];
 
-		unsigned long *pData = &m_pData[m_iCurBit >> 5];
+		unsigned long* pData = &m_pData[m_iCurBit >> 5];
 
 		// Read dwords.
 		while (nBitsLeft >= 32)
@@ -626,7 +631,7 @@ bool bf_write::WriteBits(const void *pInData, int nBits)
 }
 
 
-bool bf_write::WriteBitsFromBuffer(bf_read *pIn, int nBits)
+bool bf_write::WriteBitsFromBuffer(bf_read* pIn, int nBits)
 {
 	// This could be optimized a little by
 	while (nBits > 32)
@@ -663,8 +668,8 @@ void bf_write::WriteBitCoordMP(const float f, bool bIntegral, bool bLowPrecision
 	int		signbit = (f <= -(bLowPrecision ? COORD_RESOLUTION_LOWPRECISION : COORD_RESOLUTION));
 	int		intval = (int)abs(f);
 	int		fractval = bLowPrecision ?
-		(abs((int)(f*COORD_DENOMINATOR_LOWPRECISION)) & (COORD_DENOMINATOR_LOWPRECISION - 1)) :
-		(abs((int)(f*COORD_DENOMINATOR)) & (COORD_DENOMINATOR - 1));
+		(abs((int)(f * COORD_DENOMINATOR_LOWPRECISION)) & (COORD_DENOMINATOR_LOWPRECISION - 1)) :
+		(abs((int)(f * COORD_DENOMINATOR)) & (COORD_DENOMINATOR - 1));
 
 	bool    bInBounds = intval < (1 << COORD_INTEGER_BITS_MP);
 
@@ -715,7 +720,7 @@ void bf_write::WriteBitCoord(const float f)
 #endif
 	int		signbit = (f <= -COORD_RESOLUTION);
 	int		intval = (int)abs(f);
-	int		fractval = abs((int)(f*COORD_DENOMINATOR)) & (COORD_DENOMINATOR - 1);
+	int		fractval = abs((int)(f * COORD_DENOMINATOR)) & (COORD_DENOMINATOR - 1);
 
 
 	// Send the bit flags that indicate whether we have an integer part and/or a fraction part.
@@ -768,7 +773,7 @@ void bf_write::WriteBitNormal(float f)
 	int	signbit = (f <= -NORMAL_RESOLUTION);
 
 	// NOTE: Since +/-1 are valid values for a normal, I'm going to encode that as all ones
-	unsigned int fractval = abs((int)(f*NORMAL_DENOMINATOR));
+	unsigned int fractval = abs((int)(f * NORMAL_DENOMINATOR));
 
 	// clamp..
 	if (fractval > NORMAL_DENOMINATOR)
@@ -835,11 +840,11 @@ void bf_write::WriteLong(long val)
 
 void bf_write::WriteLongLong(int64 val)
 {
-	uint *pLongs = (uint*)&val;
+	uint* pLongs = (uint*)&val;
 
 	// Insert the two DWORDS according to network endian
 	const short endianIndex = 0x0100;
-	byte *idx = (byte*)&endianIndex;
+	byte* idx = (byte*)&endianIndex;
 	WriteUBitLong(pLongs[*idx++], sizeof(long) << 3);
 	WriteUBitLong(pLongs[*idx], sizeof(long) << 3);
 }
@@ -852,12 +857,12 @@ void bf_write::WriteFloat(float val)
 	WriteBits(&val, sizeof(val) << 3);
 }
 
-bool bf_write::WriteBytes(const void *pBuf, int nBytes)
+bool bf_write::WriteBytes(const void* pBuf, int nBytes)
 {
 	return WriteBits(pBuf, nBytes << 3);
 }
 
-bool bf_write::WriteString(const char *pStr)
+bool bf_write::WriteString(const char* pStr)
 {
 	if (pStr)
 	{
@@ -890,20 +895,20 @@ bf_read::bf_read()
 	m_pDebugName = NULL;
 }
 
-bf_read::bf_read(const void *pData, int nBytes, int nBits)
+bf_read::bf_read(const void* pData, int nBytes, int nBits)
 {
 	m_bAssertOnOverflow = true;
 	StartReading(pData, nBytes, 0, nBits);
 }
 
-bf_read::bf_read(const char *pDebugName, const void *pData, int nBytes, int nBits)
+bf_read::bf_read(const char* pDebugName, const void* pData, int nBytes, int nBits)
 {
 	m_bAssertOnOverflow = true;
 	m_pDebugName = pDebugName;
 	StartReading(pData, nBytes, 0, nBits);
 }
 
-void bf_read::StartReading(const void *pData, int nBytes, int iStartBit, int nBits)
+void bf_read::StartReading(const void* pData, int nBytes, int iStartBit, int nBits)
 {
 	// Make sure we're dword aligned.
 	Assert(((size_t)pData & 3) == 0);
@@ -936,7 +941,7 @@ void bf_read::SetAssertOnOverflow(bool bAssert)
 	m_bAssertOnOverflow = bAssert;
 }
 
-void bf_read::SetDebugName(const char *pName)
+void bf_read::SetDebugName(const char* pName)
 {
 	m_pDebugName = pName;
 }
@@ -966,13 +971,13 @@ unsigned int bf_read::CheckReadUBitLong(int numbits)
 	return r;
 }
 
-void bf_read::ReadBits(void *pOutData, int nBits)
+void bf_read::ReadBits(void* pOutData, int nBits)
 {
 #if defined( BB_PROFILING )
 	VPROF("bf_read::ReadBits");
 #endif
 
-	unsigned char *pOut = (unsigned char*)pOutData;
+	unsigned char* pOut = (unsigned char*)pOutData;
 	int nBitsLeft = nBits;
 
 
@@ -1012,7 +1017,7 @@ void bf_read::ReadBits(void *pOutData, int nBits)
 
 }
 
-int bf_read::ReadBitsClamped_ptr(void *pOutData, size_t outSizeBytes, size_t nBits)
+int bf_read::ReadBitsClamped_ptr(void* pOutData, size_t outSizeBytes, size_t nBits)
 {
 	size_t outSizeBits = outSizeBytes * 8;
 	size_t readSizeBits = nBits;
@@ -1117,7 +1122,7 @@ uint32 bf_read::ReadVarInt32()
 
 	do
 	{
-		if (count == bitbuf::kMaxVarint32Bytes)
+		if (count == bitbuf::kMaxVarInt32Bytes)
 		{
 			return result;
 		}
@@ -1435,11 +1440,11 @@ void bf_read::ReadBitAngles(QAngle& fa)
 int64 bf_read::ReadLongLong()
 {
 	int64 retval;
-	uint *pLongs = (uint*)&retval;
+	uint* pLongs = (uint*)&retval;
 
 	// Read the two DWORDs according to network endian
 	const short endianIndex = 0x0100;
-	byte *idx = (byte*)&endianIndex;
+	byte* idx = (byte*)&endianIndex;
 	pLongs[*idx++] = ReadUBitLong(sizeof(long) << 3);
 	pLongs[*idx] = ReadUBitLong(sizeof(long) << 3);
 
@@ -1457,13 +1462,13 @@ float bf_read::ReadFloat()
 	return ret;
 }
 
-bool bf_read::ReadBytes(void *pOut, int nBytes)
+bool bf_read::ReadBytes(void* pOut, int nBytes)
 {
 	ReadBits(pOut, nBytes << 3);
 	return !IsOverflowed();
 }
 
-bool bf_read::ReadString(char *pStr, int maxLen, bool bLine, int *pOutNumChars)
+bool bf_read::ReadString(char* pStr, int maxLen, bool bLine, int* pOutNumChars)
 {
 	Assert(maxLen != 0);
 
@@ -1499,7 +1504,7 @@ bool bf_read::ReadString(char *pStr, int maxLen, bool bLine, int *pOutNumChars)
 }
 
 
-char* bf_read::ReadAndAllocateString(bool *pOverflow)
+char* bf_read::ReadAndAllocateString(bool* pOverflow)
 {
 	char str[2048];
 
@@ -1509,7 +1514,7 @@ char* bf_read::ReadAndAllocateString(bool *pOverflow)
 		*pOverflow = bOverflow;
 
 	// Now copy into the output and return it;
-	char *pRet = new char[nChars + 1];
+	char* pRet = new char[nChars + 1];
 	for (int i = 0; i <= nChars; i++)
 		pRet[i] = str[i];
 
@@ -1522,7 +1527,7 @@ void bf_read::ExciseBits(int startbit, int bitstoremove)
 	int remaining_to_end = m_nDataBits - endbit;
 
 	bf_write temp;
-	temp.StartWriting((void *)m_pData, m_nDataBits << 3, startbit);
+	temp.StartWriting((void*)m_pData, m_nDataBits << 3, startbit);
 
 	Seek(endbit);
 
@@ -1537,7 +1542,7 @@ void bf_read::ExciseBits(int startbit, int bitstoremove)
 	m_nDataBytes = m_nDataBits >> 3;
 }
 
-int bf_read::CompareBitsAt(int offset, bf_read * RESTRICT other, int otherOffset, int numbits) RESTRICT
+int bf_read::CompareBitsAt(int offset, bf_read* RESTRICT other, int otherOffset, int numbits) RESTRICT
 {
 	extern unsigned long g_ExtraMasks[33];
 
@@ -1553,10 +1558,10 @@ int bf_read::CompareBitsAt(int offset, bf_read * RESTRICT other, int otherOffset
 
 	unsigned int iStartBit1 = offset & 31u;
 	unsigned int iStartBit2 = otherOffset & 31u;
-	unsigned long *pData1 = (unsigned long*)m_pData + (offset >> 5);
-	unsigned long *pData2 = (unsigned long*)other->m_pData + (otherOffset >> 5);
-	unsigned long *pData1End = pData1 + ((offset + numbits - 1) >> 5);
-	unsigned long *pData2End = pData2 + ((otherOffset + numbits - 1) >> 5);
+	unsigned long* pData1 = (unsigned long*)m_pData + (offset >> 5);
+	unsigned long* pData2 = (unsigned long*)other->m_pData + (otherOffset >> 5);
+	unsigned long* pData1End = pData1 + ((offset + numbits - 1) >> 5);
+	unsigned long* pData2End = pData2 + ((otherOffset + numbits - 1) >> 5);
 
 	while (numbits > 32)
 	{

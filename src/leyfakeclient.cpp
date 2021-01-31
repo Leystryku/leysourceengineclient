@@ -1,30 +1,23 @@
+#pragma once
+#define STEAMWORKS_CLIENT_INTERFACES
 
-#include "leyfakeclient.h"
-#include "buf.h"
-#include "checksum_crc.h"
-#include "utlbuffer.h"
-
+#include "valve/buf.h"
+#include "valve/checksum_crc.h"
+#include "valve/utlbuffer.h"
+#include "../deps/osw/Steamworks.h"
+#include "../deps/osw/ISteamUser017.h"
 #include "leychan.h"
 #include "leynet.h"
 
-#include <mmsystem.h>
-
-#define STEAMWORKS_CLIENT_INTERFACES
-#include "osw/Steamworks.h"
-#include "osw/ISteamUser017.h"
-
-
-CSteamAPILoader *g_SteamAPILoader = 0;
-// Client handles
 HSteamPipe g_hSteamPipe;
 HSteamUser g_hSteamUser;
-// Versioned interfaces
-ISteamClient017 *steamclient = 0;
-IClientEngine *clientengine = 0;
-ISteamUser017 *steamuser = 0;
-IClientAudio *clientaudio = 0;
 
-extern leychan *netchan;
+ISteamClient017* steamclient = 0;
+IClientEngine* clientengine = 0;
+ISteamUser017* steamuser = 0;
+IClientAudio* clientaudio = 0;
+
+extern leychan* netchan;
 
 #ifdef _WIN32
 #define _sleep Sleep
@@ -32,18 +25,18 @@ extern leychan *netchan;
 
 int serverport = 27015;
 
-char*serverip = "37.187.136.82";
+char* serverip = "37.187.136.82";
 char nickname[255];
 char password[255];
 
 
-char *logon = 0;
+char* logon = 0;
 
 int bconnectstep = 1;
 
 char runcmd[255];
 
-leychan *netchan = new leychan;
+leychan* netchan = new leychan;
 
 long net_tick;
 unsigned int net_hostframetime;
@@ -119,14 +112,14 @@ inline bool NET_SendDatagram(bool subchans = false)
 	int nMinRoutablePayload = MIN_ROUTABLE_PAYLOAD;
 
 
-	while ((netdatagram.GetNumBytesWritten() < MIN_ROUTABLE_PAYLOAD&&netdatagram.GetNumBitsWritten() % 8 != 0))
+	while ((netdatagram.GetNumBytesWritten() < MIN_ROUTABLE_PAYLOAD && netdatagram.GetNumBitsWritten() % 8 != 0))
 	{
 		netdatagram.WriteUBitLong(0, NETMSG_TYPE_BITS);
 	}
 
 	flagpos.WriteByte(flags);
 
-	void *pvData = datagram + nCheckSumStart;
+	void* pvData = datagram + nCheckSumStart;
 
 	if (pvData)
 	{
@@ -136,7 +129,7 @@ inline bool NET_SendDatagram(bool subchans = false)
 		if (nCheckSumBytes > 0)
 		{
 
-			unsigned short usCheckSum = BufferToShortChecksum(pvData, nCheckSumBytes);
+			unsigned short usCheckSum = leychan::BufferToShortChecksum(pvData, nCheckSumBytes);
 			flagpos.WriteUBitLong(usCheckSum, 16);
 
 			netchan->m_nOutSequenceNr++;
@@ -163,7 +156,7 @@ inline bool NET_RequestFragments()
 	return true;
 }
 
-void GenerateLeyFile(const char *file, const char *txt)
+void GenerateLeyFile(const char* file, const char* txt)
 {
 
 
@@ -225,7 +218,7 @@ unsigned char steamkey_encryptionkey[STEAM_KEYSIZE];
 unsigned char serversteamid[STEAM_KEYSIZE];
 int vacsecured = 0;
 
-bool HandleMessage(bf_read &msg, int type)
+bool HandleMessage(bf_read& msg, int type)
 {
 
 	if (type == 0) // nop
@@ -251,7 +244,7 @@ bool HandleMessage(bf_read &msg, int type)
 		long transferid = msg.ReadUBitLong(32);
 		char filename[255];
 		msg.ReadString(filename, sizeof(filename));
-		bool requested = (bool)(msg.ReadOneBit()==1);
+		bool requested = (bool)(msg.ReadOneBit() == 1);
 
 		if (requested)
 			printf("net_File: Server requested file: %s::%i\n", filename, transferid);
@@ -524,7 +517,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 
 		msg.ReadBits(data, bits);
 
@@ -568,38 +561,40 @@ bool HandleMessage(bf_read &msg, int type)
 
 
 
-		char* voicedata = new char[(bits+8)/8];
+		char* voicedata = new char[(bits + 8) / 8];
 		msg.ReadBits(voicedata, bits);
 
-		if(voicetoggle)
+		if (voicetoggle)
 		{
-			char*uncompressed = new char[0xFFFF];
+			char* uncompressed = new char[0xFFFF];
 			unsigned int uncompressed_size = 0;
-			
-			
+
+
 			EVoiceResult worked = clientaudio->DecompressVoice(voicedata, bits / 8, uncompressed, 0xFFFF, &uncompressed_size, clientaudio->GetVoiceOptimalSampleRate());
 
 			if (worked == k_EVoiceResultOK)
 			{
+				/*
 				HWAVEOUT hWaveOut = 0;
 				WAVEHDR header = { uncompressed, uncompressed_size, 0, 0, 0, 0, 0, 0 };
 
-				WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, 1, clientaudio->GetVoiceOptimalSampleRate(), clientaudio->GetVoiceOptimalSampleRate()*2, 2, 16, sizeof(WAVEFORMATEX) };
+				WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, 1, clientaudio->GetVoiceOptimalSampleRate(), clientaudio->GetVoiceOptimalSampleRate() * 2, 2, 16, sizeof(WAVEFORMATEX) };
 				waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
 
 				waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
 				waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
 
 				waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-				waveOutClose(hWaveOut);
-			}else{
+				waveOutClose(hWaveOut);*/
+			}
+			else {
 				printf("RIP AUDIO: %i\n", worked);
 				delete[] uncompressed;
 			}
-		
+
 
 			delete[] voicedata;
-			
+
 		}
 
 
@@ -640,7 +635,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char*data = new char[bits];
+		char* data = new char[bits];
 		msg.ReadBits(data, bits);
 
 		delete[] data;
@@ -675,7 +670,7 @@ bool HandleMessage(bf_read &msg, int type)
 		int p = msg.ReadUBitLong(16);
 		int y = msg.ReadUBitLong(16);
 		int r = msg.ReadUBitLong(16);
-		
+
 		printf("Received svc_CrosshairAngle p: %d y: %d r: %d\n", p, y, r);
 	}
 
@@ -780,7 +775,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 		msg.ReadBits(data, bits);
 
 		delete[] data;
@@ -797,7 +792,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 		msg.ReadBits(data, bits);
 
 		delete[] data;
@@ -830,7 +825,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 		msg.ReadBits(data, bits);
 
 		delete[] data;
@@ -849,7 +844,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 
 		msg.ReadBits(data, bits);
 
@@ -860,7 +855,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bconnectstep)
 		{
 			/*
-			
+
 			leynet_tcp tcp;
 			printf("TCP TIME2\n");
 			tcp.OpenConnection(serverip, serverport);//is that really the tcp port
@@ -873,11 +868,11 @@ bool HandleMessage(bf_read &msg, int type)
 			tcp.Send("\x09", 1);
 			Sleep(100);
 
-			
+
 			senddata.WriteUBitLong(10, 6);
 			senddata.WriteWord(0xFFFF);
 
-		
+
 
 			for (int i = 0; i < 1000; i++)
 			{
@@ -922,7 +917,7 @@ bool HandleMessage(bf_read &msg, int type)
 		if (bits < 1)
 			return true;
 
-		char *data = new char[bits];
+		char* data = new char[bits];
 		msg.ReadBits(data, bits);
 
 		printf("Received svc_GameEventList, num: %i | bits: %i\n", num, bits);
@@ -963,7 +958,7 @@ bool HandleMessage(bf_read &msg, int type)
 
 		if (type == 4)
 		{
-			
+
 			char* data = new char[bits];
 
 
@@ -985,7 +980,7 @@ bool HandleMessage(bf_read &msg, int type)
 
 		}
 
-		if(type==3)
+		if (type == 3)
 		{
 
 			printf("Received svc_GMod_ServerToClient, type: %i |  bits: %i\n", type, bits);
@@ -996,7 +991,7 @@ bool HandleMessage(bf_read &msg, int type)
 
 		if (type == 0)
 		{
-		
+
 			int id = msg.ReadWord();
 
 			char* data = new char[bits];
@@ -1025,7 +1020,7 @@ bool HandleMessage(bf_read &msg, int type)
 
 
 
-int ProcessMessages(bf_read&msgs)
+int ProcessMessages(bf_read& msgs)
 {
 
 	int processed = 0;
@@ -1061,7 +1056,7 @@ int ProcessMessages(bf_read&msgs)
 }
 
 
-int HandleConnectionLessPacket(char*ip, short port, int connection_less, bf_read& recvdata)
+int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_read& recvdata)
 {
 	recvdata.ReadLong();
 
@@ -1203,10 +1198,8 @@ int HandleConnectionLessPacket(char*ip, short port, int connection_less, bf_read
 	default:
 	{
 		printf("Unknown message received from: %s, header: %i ( %c )\n", ip, header, header);
-		break;
+		return 0;
 	}
-
-
 	}
 }
 int last_packet_received = 0;
@@ -1216,12 +1209,12 @@ int networkthink()
 
 	char netrecbuffer[NETBUFFER_SIZE];
 
-	
+
 	int msgsize = 0;
 	unsigned short port = 0;
 	char charip[25] = { 0 };
 
-	char*worked = net.Receive(&msgsize, &port, charip, netrecbuffer, NETBUFFER_SIZE);
+	char* worked = net.Receive(&msgsize, &port, charip, netrecbuffer, NETBUFFER_SIZE);
 
 	if (!msgsize)
 		return 0;
@@ -1254,12 +1247,12 @@ int networkthink()
 	{
 		unsigned int uncompressedSize = msgsize * 16;
 
-		char*tmpbuffer = new char[uncompressedSize];
+		char* tmpbuffer = new char[uncompressedSize];
 
 
 		memmove(netrecbuffer, netrecbuffer + 4, msgsize + 4);
 
-		NET_BufferToBufferDecompress(tmpbuffer, uncompressedSize, netrecbuffer, msgsize);
+		leychan::NET_BufferToBufferDecompress(tmpbuffer, uncompressedSize, netrecbuffer, msgsize);
 
 		memcpy(netrecbuffer, tmpbuffer, uncompressedSize);
 
@@ -1301,7 +1294,7 @@ int networkthink()
 		int bit = recvdata.ReadUBitLong(3);
 		bit = 1 << bit;
 
-		for (i = 0; i<MAX_STREAMS; i++)
+		for (i = 0; i < MAX_STREAMS; i++)
 		{
 
 			if (recvdata.ReadOneBit() != 0)
@@ -1316,7 +1309,7 @@ int networkthink()
 
 		FLIPBIT(netchan->m_nInReliableState, bit);
 
-		for (i = 0; i<MAX_STREAMS; i++)
+		for (i = 0; i < MAX_STREAMS; i++)
 		{
 			if (!netchan->CheckReceivingList(i))
 			{
@@ -1337,7 +1330,7 @@ int networkthink()
 
 	static bool neededfragments = false;
 
-	if (netchan->NeedsFragments() || flags&PACKET_FLAG_TABLES)
+	if (netchan->NeedsFragments() || flags & PACKET_FLAG_TABLES)
 	{
 		neededfragments = true;
 		NET_RequestFragments();
@@ -1427,11 +1420,11 @@ void* sendthread(void* shit)
 
 		static int skipwalks = 0;
 
-		if(skipwalks)
+		if (skipwalks)
 			skipwalks--;
 
 
-		if (!skipwalks )
+		if (!skipwalks)
 		{
 			/*
 			senddata.WriteUBitLong(9, 6);
@@ -1453,7 +1446,7 @@ void* sendthread(void* shit)
 
 					static float pitch = 90;
 					static bool bdown = true;
-					
+
 					if (bdown)
 						pitch -= 2;
 					else
@@ -1530,7 +1523,7 @@ void* sendthread(void* shit)
 
 			skipwalks = 50;//12 seems best
 		}
-		
+
 
 
 		{
@@ -1589,7 +1582,7 @@ void* sendthread(void* shit)
 			printf("Sending cmd: %s\n", runcmd);
 
 			senddata.WriteUBitLong(4, 6);
-			senddata.WriteString(runcmd);	
+			senddata.WriteString(runcmd);
 
 			memset(runcmd, 0, sizeof(runcmd));
 		}
@@ -1600,7 +1593,7 @@ void* sendthread(void* shit)
 
 }
 
-int parseip(const char*serverip_and_port, char*& ip, int& port)
+int parseip(const char* serverip_and_port, char*& ip, int& port)
 {
 
 	char cserverport[25];
@@ -1629,41 +1622,64 @@ int parseip(const char*serverip_and_port, char*& ip, int& port)
 	return 1;
 }
 
-bool InitSteam()
+#include <Shlwapi.h>
+
+std::string obtain_steam_folder(void)
 {
-	g_SteamAPILoader = new CSteamAPILoader;
+	char buf[MAX_PATH];
+	DWORD buf_length = sizeof(buf);
+	DWORD type = REG_SZ;
 
-	CreateInterfaceFn fnApiInterface = g_SteamAPILoader->GetSteam3Factory();
+	if (SHGetValue(HKEY_CURRENT_USER, TEXT("Software\\Valve\\Steam"), TEXT("SteamPath"), &type, buf, &buf_length) != ERROR_SUCCESS)
+		MessageBox(0, "No Steam-directory found (HKEY_CURRENT_USER\\Software\\Valve\\Steam\\SteamPath).\n", "error", MB_OK);
 
-
-	if (!fnApiInterface)
-		return false;
-
-	if (!(steamclient = (ISteamClient017 *)fnApiInterface(STEAMCLIENT_INTERFACE_VERSION_017, NULL)))
-		return false;
-
-	if (!(clientengine = (IClientEngine *)fnApiInterface(CLIENTENGINE_INTERFACE_VERSION, NULL)))
-		return false;
-
-	if (!(g_hSteamPipe = steamclient->CreateSteamPipe()))
-		return false;
-
-	if (!(g_hSteamUser = steamclient->ConnectToGlobalUser(g_hSteamPipe)))
-		return false;
-
-	if (!(steamuser = (ISteamUser017 *)steamclient->GetISteamUser(g_hSteamUser, g_hSteamPipe, STEAMUSER_INTERFACE_VERSION_017)))
-		return false;
-
-	if (!(clientaudio = (IClientAudio *)clientengine->GetIClientAudio(g_hSteamUser, g_hSteamPipe, CLIENTAUDIO_INTERFACE_VERSION)))
-		return false;
-
-	return true;
+	return buf;
 }
 
-int main(int argc, const char *argv[])
+
+int InitSteam()
+{
+	SetDllDirectory(obtain_steam_folder().c_str());
+
+
+	HMODULE steam = LoadLibrary("steam");
+	HMODULE steamapi = LoadLibrary("steam_api");
+	HMODULE steamclientdll = LoadLibrary("steamclient");
+
+	if (!steamclientdll)
+	{
+		printf("no steam client dll\n");
+		return 1;
+	}
+
+	CreateInterfaceFn fnApiInterface = (CreateInterfaceFn)GetProcAddress(steamclientdll, "CreateInterface");
+	if (!fnApiInterface)
+	{
+		return 1;
+	}
+
+	if (!(steamclient = (ISteamClient017*)fnApiInterface(STEAMCLIENT_INTERFACE_VERSION_017, NULL)))
+		return 2;
+
+	if (!(clientengine = (IClientEngine*)fnApiInterface(CLIENTENGINE_INTERFACE_VERSION, NULL)))
+		return 3;
+
+	if (!(g_hSteamPipe = steamclient->CreateSteamPipe()))
+		return 4;
+
+	if (!(g_hSteamUser = steamclient->ConnectToGlobalUser(g_hSteamPipe)))
+		return 5;
+
+	if (!(steamuser = (ISteamUser017*)steamclient->GetISteamUser(g_hSteamUser, g_hSteamPipe, STEAMUSER_INTERFACE_VERSION_017)))
+		return 6;
+
+	return 0;
+}
+
+int main(int argc, const char* argv[])
 {
 
-	if (!argv[1] || !argv[2] || !argv[3] )
+	if (!argv[1] || !argv[2] || !argv[3])
 	{
 		printf("Invalid Params: server clientport nickname [password]\n");
 		return 0;
@@ -1883,7 +1899,7 @@ int main(int argc, const char *argv[])
 			memset(nickname, 0, sizeof(nickname));
 
 			memmove(nickname, input + strlen("name "), sizeof(input));
-			
+
 			NET_ResetDatagram();
 			senddata.WriteUBitLong(5, 6);
 			senddata.WriteByte(0x1);

@@ -1,5 +1,3 @@
-#ifndef LEYNET_H
-#define LEYNET_H
 #pragma once
 
 
@@ -50,17 +48,17 @@ public:
 
 	//opening/closing/starting
 
-	char *Start(bool customerr = false);
+	char* Start(bool customerr = false);
 
-	char *OpenSocket(short port);
-	char *CloseSocket();
+	char* OpenSocket(short port);
+	char* CloseSocket();
 
 
 
 	//actions
 
-	char *SendTo(const char*ip, short port, const char *buffer, int len);
-	char *Receive(int*msgsize, unsigned short*port, char*ip, char*buffer, int buffersize);
+	char* SendTo(const char* ip, short port, const char* buffer, int len);
+	char* Receive(int* msgsize, unsigned short* port, char* ip, char* buffer, int buffersize);
 
 };
 
@@ -75,7 +73,7 @@ private:
 	char connectip[25];
 
 public:
-	typedef bool(*TCP_Finished)(unsigned int datalen, unsigned int curdatalen, char*buffer, char* curbuffer);
+	typedef bool(*TCP_Finished)(unsigned int datalen, unsigned int curdatalen, char* buffer, char* curbuffer);
 
 	unsigned int lenfin;
 	int timefin;
@@ -114,25 +112,22 @@ public:
 
 	char* Start(bool customerr = false);
 
-	char *Bind(unsigned short port);
-	char* Listen(char*ip, unsigned short&port, unsigned int*sock);
-	char* OpenConnection(char*addr, unsigned short port);
+	char* Bind(unsigned short port);
+	char* Listen(char* ip, unsigned short& port, unsigned int* sock);
+	char* OpenConnection(char* addr, unsigned short port);
 	char* CloseConnection();
 
 	//actions
 	char* GetIP();
 	char* HTTPParse(int* msgsize, char* response);
 	char* HTTPParseLength(int* msgsize, char* response);
-	char* HTTPGet(const char *resource);
-	char* Send(const char *buffer, int len);
-	char* Receive(int* msgsize, char*buffer, int buffersize, TCP_Finished fin = 0);
+	char* HTTPGet(const char* resource);
+	char* Send(const char* buffer, int len);
+	char* Receive(int* msgsize, char* buffer, int buffersize, TCP_Finished fin = 0);
 
 
 	//Finish functions
-	bool TLenFin(unsigned int datalen, unsigned int curdatalen, char*buffer, char* curbuffer);
-	bool THTTPLenFin(unsigned int datalen, unsigned int curdatalen, char*buffer, char *curbuffer);
+	bool TLenFin(unsigned int datalen, unsigned int curdatalen, char* buffer, char* curbuffer);
+	bool THTTPLenFin(unsigned int datalen, unsigned int curdatalen, char* buffer, char* curbuffer);
 
 };
-
-#endif
-	

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{21EB8090-0D4E-1035-B6D3-48EBA215DCB7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\valve">
+      <UniqueIdentifier>{AECCB708-9AB0-785E-0311-73B1EF1363E0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{E9C7FDCE-D52A-8D73-7EB0-C5296AF258F6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\valve">
+      <UniqueIdentifier>{761FE963-6203-AAB9-CB63-A40CB766943B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\leychan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\leychandefs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\leynet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\buf.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\checksum_crc.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\clzss.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\datafragments.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\subchannel.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\valve\utlbuffer.h">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\vector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\leychan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\leyfakeclient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\leynet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\valve\buf.cpp">
+      <Filter>Source Files\valve</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\valve\checksum_crc.cpp">
+      <Filter>Source Files\valve</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\valve\clzss.cpp">
+      <Filter>Source Files\valve</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\valve\utlbuffer.cpp">
+      <Filter>Source Files\valve</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

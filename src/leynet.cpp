@@ -1,4 +1,3 @@
-
 #include "leynet.h"
 
 #include <WinSock2.h>
@@ -24,7 +23,7 @@ char* leynet::HandleError()
 #ifdef DEBUG
 	if (customerrorhandling)
 	{
-		char *errmsg = new char[255];
+		char* errmsg = new char[255];
 		sprintf(errmsg, "operation failed %i\n", wsaerr);
 		return errmsg;
 	}
@@ -100,7 +99,7 @@ char* leynet_udp::CloseSocket()
 
 //actions
 
-char* leynet_udp::SendTo(const char*ip, short port, const char *buffer, int len)
+char* leynet_udp::SendTo(const char* ip, short port, const char* buffer, int len)
 {
 
 	if (!sock)
@@ -113,7 +112,7 @@ char* leynet_udp::SendTo(const char*ip, short port, const char *buffer, int len)
 
 	inet_pton(AF_INET, ip, &(add.sin_addr));
 
-	int ret = sendto(sock, buffer, len, 0, reinterpret_cast<SOCKADDR *>(&add), sizeof(add));
+	int ret = sendto(sock, buffer, len, 0, reinterpret_cast<SOCKADDR*>(&add), sizeof(add));
 
 
 	if (ret < 0)
@@ -123,7 +122,7 @@ char* leynet_udp::SendTo(const char*ip, short port, const char *buffer, int len)
 
 }
 
-char *leynet_udp::Receive(int*msgsize, unsigned short*port, char*ip, char*buffer, int buffersize)
+char* leynet_udp::Receive(int* msgsize, unsigned short* port, char* ip, char* buffer, int buffersize)
 {
 	if (!sock)
 		return (char*)"k";
@@ -193,7 +192,7 @@ char* leynet_tcp::Bind(unsigned short bport)
 	return 0;
 }
 
-char* leynet_tcp::Listen(char*ip, unsigned short&lport, unsigned int*ssock)
+char* leynet_tcp::Listen(char* ip, unsigned short& lport, unsigned int* ssock)
 {
 
 	sockaddr_in client;
@@ -203,7 +202,7 @@ char* leynet_tcp::Listen(char*ip, unsigned short&lport, unsigned int*ssock)
 
 	unsigned int accepted = (unsigned int)accept(sock, (sockaddr*)&client, &len);
 
-	if (accepted<0)
+	if (accepted < 0)
 	{
 
 		return 0;
@@ -220,10 +219,10 @@ char* leynet_tcp::Listen(char*ip, unsigned short&lport, unsigned int*ssock)
 	return 0;
 }
 
-char* leynet_tcp::OpenConnection(char*addr, unsigned short port)
+char* leynet_tcp::OpenConnection(char* addr, unsigned short port)
 {
 
-	addrinfo *hints = new addrinfo;
+	addrinfo* hints = new addrinfo;
 	memset(hints, 0, sizeof(*hints));
 	hints->ai_family = AF_INET;
 	hints->ai_protocol = IPPROTO_TCP;
@@ -253,7 +252,7 @@ char* leynet_tcp::OpenConnection(char*addr, unsigned short port)
 
 	ret = connect(sock, (SOCKADDR*)(&add), sizeof(add));
 
-	if (ret<0)
+	if (ret < 0)
 	{
 		closesocket(sock);
 		sock = 0;
@@ -283,25 +282,25 @@ char* leynet_tcp::CloseConnection()
 
 //actions
 
-char *leynet_tcp::HTTPParseLength(int*msgsize, char*msg)
+char* leynet_tcp::HTTPParseLength(int* msgsize, char* msg)
 {
 	int size = *msgsize;
 
 	int newsize = 0;
 
-	char *foundlength = strstr(msg, "Content-Length:");
+	char* foundlength = strstr(msg, "Content-Length:");
 
 	if (foundlength)
 	{
 		printf("found length!\n");
 
-		char *start = foundlength + 16;
+		char* start = foundlength + 16;
 
 		int endlen = 1;
 
 		for (endlen; endlen < 15; endlen++)
 		{
-			if (start[endlen] == '\r'&&start[endlen + 1] == '\n')
+			if (start[endlen] == '\r' && start[endlen + 1] == '\n')
 				break;
 		}
 
@@ -335,7 +334,7 @@ char *leynet_tcp::HTTPParseLength(int*msgsize, char*msg)
 		int a = 0;
 		for (a = 2; a < 12; a++)
 		{
-			if (msg[i + a] == '\r'&&msg[i + a + 1] == '\n')
+			if (msg[i + a] == '\r' && msg[i + a + 1] == '\n')
 			{
 				bfound = true;
 				break;
@@ -365,7 +364,7 @@ char *leynet_tcp::HTTPParseLength(int*msgsize, char*msg)
 	return 0;
 }
 
-char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
+char* leynet_tcp::HTTPParse(int* msgsize, char* msg)
 {
 
 	int size = *msgsize;
@@ -373,11 +372,11 @@ char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
 	if (!size)
 		return 0;
 
-	char *header = new char[16000];
+	char* header = new char[16000];
 
 	for (int i = 0; i < size; i++)
 	{
-		if (msg[i] == '\r'&&msg[i + 1] == '\n'&&msg[i + 2] == '\r'&&msg[i + 3] == '\n')
+		if (msg[i] == '\r' && msg[i + 1] == '\n' && msg[i + 2] == '\r' && msg[i + 3] == '\n')
 		{
 			memcpy(header, msg, i + 2);//save header
 			header[i + 3] = 0;
@@ -394,7 +393,7 @@ char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
 	}
 
 
-	char *foundlength = strstr(header, "Content-Length:");
+	char* foundlength = strstr(header, "Content-Length:");
 
 	int newsize = 0;
 
@@ -402,13 +401,13 @@ char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
 	{
 		printf("found length!\n");
 
-		char *start = foundlength + 16;
+		char* start = foundlength + 16;
 
 		int endlen = 1;
 
 		for (endlen; endlen < 15; endlen++)
 		{
-			if (start[endlen] == '\r'&&start[endlen + 1] == '\n')
+			if (start[endlen] == '\r' && start[endlen + 1] == '\n')
 				break;
 		}
 
@@ -433,7 +432,7 @@ char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
 		int a = 0;
 		for (a = 1; a < 12; a++)
 		{
-			if (msg[i + a] == '\r'&&msg[i + a + 1] == '\n')
+			if (msg[i + a] == '\r' && msg[i + a + 1] == '\n')
 			{
 				bfound = true;
 				break;
@@ -462,7 +461,7 @@ char *leynet_tcp::HTTPParse(int* msgsize, char* msg)
 	}
 
 
-	if (msg[0] == '\r'&&msg[1] == '\n')
+	if (msg[0] == '\r' && msg[1] == '\n')
 	{
 		memcpy(msg, msg + 2, newsize);
 	}
@@ -479,12 +478,12 @@ char* leynet_tcp::GetIP()
 	return connectip;
 }
 
-char* leynet_tcp::HTTPGet(const char *resource)
+char* leynet_tcp::HTTPGet(const char* resource)
 {
 	char request[800];
 	sprintf(request, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\n\r\n", resource, connectip);
 
-	char *ret = Send(request, strlen(request));
+	char* ret = Send(request, strlen(request));
 
 	if (ret)
 		return ret;
@@ -492,7 +491,7 @@ char* leynet_tcp::HTTPGet(const char *resource)
 	return 0;
 }
 
-char* leynet_tcp::Send(const char *buffer, int len)
+char* leynet_tcp::Send(const char* buffer, int len)
 {
 	if (!sock)
 		return (char*)"k";
@@ -506,7 +505,7 @@ char* leynet_tcp::Send(const char *buffer, int len)
 
 }
 
-char *leynet_tcp::Receive(int* msgsize, char*buffer, int buffersize, TCP_Finished fin)
+char* leynet_tcp::Receive(int* msgsize, char* buffer, int buffersize, TCP_Finished fin)
 {
 
 	unsigned int totaldatalen = 0;
@@ -515,7 +514,7 @@ char *leynet_tcp::Receive(int* msgsize, char*buffer, int buffersize, TCP_Finishe
 	if (curbuffer_size > buffersize)
 		curbuffer_size = buffersize - 3;
 
-	char*curbuffer = new char[curbuffer_size];
+	char* curbuffer = new char[curbuffer_size];
 
 	while (true)
 	{
@@ -555,7 +554,7 @@ char *leynet_tcp::Receive(int* msgsize, char*buffer, int buffersize, TCP_Finishe
 			}
 		}
 
-		if (!fin&&curdatalen<1)
+		if (!fin && curdatalen < 1)
 			break;
 
 	}
@@ -572,10 +571,10 @@ char *leynet_tcp::Receive(int* msgsize, char*buffer, int buffersize, TCP_Finishe
 	return 0;
 }
 
-bool leynet_tcp::TLenFin(unsigned int datalen, unsigned int curdatalen, char*buffer, char*curbuffer)
+bool leynet_tcp::TLenFin(unsigned int datalen, unsigned int curdatalen, char* buffer, char* curbuffer)
 {
 
-	if (lenfin&&datalen >= lenfin)
+	if (lenfin && datalen >= lenfin)
 	{
 		lenfin = 0;
 		timefin = 0;
@@ -608,7 +607,7 @@ bool leynet_tcp::TLenFin(unsigned int datalen, unsigned int curdatalen, char*buf
 	return true;
 }
 
-bool leynet_tcp::THTTPLenFin(unsigned int datalen, unsigned int curdatalen, char*buffer, char*curbuffer)
+bool leynet_tcp::THTTPLenFin(unsigned int datalen, unsigned int curdatalen, char* buffer, char* curbuffer)
 {
 
 	int penis = curdatalen;
@@ -619,7 +618,7 @@ bool leynet_tcp::THTTPLenFin(unsigned int datalen, unsigned int curdatalen, char
 
 	printf("DATALEN: %i LENFIN: %i\n", datalen, lenfin);
 
-	if (lenfin&&datalen >= lenfin)
+	if (lenfin && datalen >= lenfin)
 	{
 		lenfin = 0;
 		timefin = 0;
