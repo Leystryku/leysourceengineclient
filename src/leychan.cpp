@@ -5,11 +5,15 @@
 
 #include <string>
 #include <direct.h>
+#include <vector>
 
 #include "valve/buf.h"
 #include "valve/checksum_crc.h"
 #include "valve/clzss.h"
 #include "leychan.h"
+
+#include "netmsghandlers/net_messages.h"
+#include "netmsghandlers/svc_messages.h"
 
 #define _ShouldChecksumPackets true
 #define _showdrop true
@@ -88,7 +92,7 @@ unsigned short leychan::BufferToShortChecksum(void* pvData, size_t nLength)
 	return (unsigned short)(lowpart ^ highpart);
 }
 
-void leychan::Initialize()
+void leychan::Reset()
 {
 	m_iServerCount = -1;
 	m_iSignOnState = 2;
@@ -114,6 +118,100 @@ void leychan::Initialize()
 	memset(m_ReceiveList, 0, sizeof(m_ReceiveList));
 	memset(m_SubChannels, 0, sizeof(m_SubChannels));
 	memset(m_WaitingList, 0, sizeof(m_WaitingList));
+
+	// TODO: free memory of old handlers
+	m_netCallbacks.clear();
+}
+
+void leychan::Initialize()
+{
+	Reset();
+
+	net_nop* nop = new net_nop;
+	nop->Register(this);
+
+	net_file* file = new net_file;
+	file->Register(this);
+
+	net_tick* tick = new net_tick;
+	tick->Register(this);
+
+	net_stringcmd* stringcmd = new net_stringcmd;
+	stringcmd->Register(this);
+
+	net_setconvar* setconvar = new net_setconvar;
+	setconvar->Register(this);
+
+	net_signonstate* signonstate = new net_signonstate;
+	signonstate->Register(this);
+
+	svc_print* print = new svc_print;
+	print->Register(this);
+
+	svc_serverinfo* serverinfo = new svc_serverinfo;
+	serverinfo->Register(this);
+
+	svc_classinfo* classinfo = new svc_classinfo;
+	classinfo->Register(this);
+
+	svc_setpause* setpause = new svc_setpause;
+	setpause->Register(this);
+
+	svc_createstringtable* createstringtable = new svc_createstringtable;
+	createstringtable->Register(this);
+
+	svc_updatestringtable* updatestringtable = new svc_updatestringtable;
+	updatestringtable->Register(this);
+
+	svc_voiceinit* voiceinit = new svc_voiceinit;
+	voiceinit->Register(this);
+
+	svc_voicedata* voicedata = new svc_voicedata;
+	voicedata->Register(this);
+
+	svc_sounds* sounds = new svc_sounds;
+	sounds->Register(this);
+
+	svc_setview* setview = new svc_setview;
+	setview->Register(this);
+
+	svc_fixangle* fixangle = new svc_fixangle;
+	fixangle->Register(this);
+
+	svc_crosshairangle* crosshairangle = new svc_crosshairangle;
+	crosshairangle->Register(this);
+
+	svc_bspdecal* bspdecal = new svc_bspdecal;
+	bspdecal->Register(this);
+
+	svc_usermessage* usermessage = new svc_usermessage;
+	usermessage->Register(this);
+
+	svc_entitymessage* entitymessage = new svc_entitymessage;
+	entitymessage->Register(this);
+
+	svc_gameevent* gameevent = new svc_gameevent;
+	gameevent->Register(this);
+
+	svc_packetentities* packetentities = new svc_packetentities;
+	packetentities->Register(this);
+
+	svc_tempentities* tempentities = new svc_tempentities;
+	tempentities->Register(this);
+
+	svc_prefetch* prefetch = new svc_prefetch;
+	prefetch->Register(this);
+
+	svc_gameeventlist* gameeventlist = new svc_gameeventlist;
+	gameeventlist->Register(this);
+
+	svc_getcvarvalue* getcvarvalue = new svc_getcvarvalue;
+	getcvarvalue->Register(this);
+
+	svc_gmod_servertoclient* gmod_servertoclient = new svc_gmod_servertoclient;
+	gmod_servertoclient->Register(this);
+
+
 }
 
 int leychan::ProcessPacketHeader(int msgsize, bf_read& message)
@@ -655,4 +753,155 @@ int leychan::HandleSplitPacket(char* netrecbuffer, int& msgsize, bf_read& recvda
 	}
 
 	return 0;
+}
+
+bool leychan::HandleMessage(bf_read& msg, int type)
+{
+	for (auto pos = this->m_netCallbacks.begin(); pos != this->m_netCallbacks.end(); ++pos)
+	{
+		auto kv = *pos;
+
+		if (kv->first == type)
+		{
+			std::pair<void*, netcallbackfn>* fninfo = kv->second;
+
+			netcallbackfn cb = fninfo->second;
+
+			return cb(this, fninfo->first, msg);
+		}
+	}
+
+	return false;
+}
+
+int leychan::ProcessMessages(bf_read& msgs)
+{
+
+	int processed = 0;
+	while (true)
+	{
+		if (msgs.IsOverflowed())
+		{
+			return processed;
+		}
+
+
+
+		unsigned char type = msgs.ReadUBitLong(NETMSG_TYPE_BITS);
+
+		bool handled = this->HandleMessage(msgs, type);
+
+		if (!handled)
+		{
+			printf("Unhandled Message: %i\n", type);
+			return processed;
+		}
+
+		processed++;
+
+		if (msgs.GetNumBitsLeft() < NETMSG_TYPE_BITS)
+		{
+			return processed;
+		}
+	}
+
+
+	return processed;
+}
+
+
+bool leychan::RegisterMessageHandler(int msgtype, void* classptr, netcallbackfn handler)
+{
+	std::pair<void*, netcallbackfn>* fninfo = new std::pair<void*, netcallbackfn>;
+	fninfo->first = classptr;
+	fninfo->second = handler;
+
+	std::pair<int, netcallback*>* netcb = new std::pair<int, netcallback*>;
+	netcb->first = msgtype;
+	netcb->second = fninfo;
+
+	this->m_netCallbacks.push_back(netcb);
+	return true;
+}
+
+void leychan::SetSignonState(int servercount, int state)
+{
+	if (this->m_iSignOnState == state)
+	{
+		printf("Ignored signonstate!\n");
+		return;
+	}
+
+	this->m_iServerCount = servercount;
+	this->m_iSignOnState = state;
+
+	printf("Should do SetSignonState __ %i\n", state);
+	/*
+	if (state == 3)
+	{
+		senddata.WriteUBitLong(8, 6);
+		senddata.WriteLong(netchan->m_iServerCount);
+		senddata.WriteLong(-1343288453);//clc_ClientInfo crc
+		senddata.WriteOneBit(1);//ishltv
+		senddata.WriteLong(1337);
+
+		static int shit = 20;
+		shit++;
+		printf("LOL: %i\n", shit);
+
+		senddata.WriteUBitLong(0, shit);
+
+		NET_SendDatagram(0);
+
+		senddata.WriteUBitLong(0, 6);
+
+		senddata.WriteUBitLong(6, 6);
+		senddata.WriteByte(state);
+		senddata.WriteLong(aservercount);
+		NET_SendDatagram(0);
+
+		return true;
+	}
+
+	if (bconnectstep)
+	{
+
+
+		if (state == 4 && false)
+		{
+			senddata.WriteUBitLong(12, 6);
+
+			for (int i = 0; i < 32; i++)
+			{
+				senddata.WriteUBitLong(1, 32);
+			}
+
+		}
+
+		senddata.WriteUBitLong(6, 6);
+		senddata.WriteByte(state);
+		senddata.WriteLong(aservercount);
+
+
+
+		NET_SendDatagram(false);
+
+		return true;
+	}
+
+	senddata.WriteUBitLong(6, 6);
+	senddata.WriteByte(state);
+	senddata.WriteLong(aservercount);
+	*/
+
+}
+
+void leychan::ProcessServerInfo(unsigned short protocolversion, int count)
+{
+	this->m_iServerCount = count;
+}
+
+void leychan::Reconnect()
+{
+	printf("Should do reconnect\n");
 }

@@ -4,11 +4,29 @@
     <Filter Include="Header Files">
       <UniqueIdentifier>{21EB8090-0D4E-1035-B6D3-48EBA215DCB7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\netmsghandlers">
+      <UniqueIdentifier>{2FBA5970-9BC7-8756-24AE-834190BA530D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\netmsghandlers\net">
+      <UniqueIdentifier>{E5E0141E-51C4-235E-5AC7-519AC629EAAE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\netmsghandlers\svc">
+      <UniqueIdentifier>{4AF8141E-B6DB-235E-BFDE-519A2B41EAAE}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\valve">
       <UniqueIdentifier>{AECCB708-9AB0-785E-0311-73B1EF1363E0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{E9C7FDCE-D52A-8D73-7EB0-C5296AF258F6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\netmsghandlers">
+      <UniqueIdentifier>{F7AD687D-63BB-9663-ECA1-924E58AE621A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\netmsghandlers\net">
+      <UniqueIdentifier>{AD78883D-195C-977D-225F-C5B98EC15DCE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\netmsghandlers\svc">
+      <UniqueIdentifier>{1290883D-7E73-977D-8776-C5B9F3D85DCE}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\valve">
       <UniqueIdentifier>{761FE963-6203-AAB9-CB63-A40CB766943B}</UniqueIdentifier>
@@ -26,6 +44,90 @@
     </ClInclude>
     <ClInclude Include="..\src\leynet.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_disconnect.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_file.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_nop.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_setconvar.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_signonstate.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_stringcmd.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\net\net_tick.h">
+      <Filter>Header Files\netmsghandlers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_bspdecal.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_classinfo.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_createstringtable.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_crosshairangle.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_entitymessage.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_fixangle.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gameevent.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gameeventlist.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_getcvarvalue.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gmod_servertoclient.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_packetentities.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_print.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_serverinfo.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_setpause.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_setview.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_sounds.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_tempentities.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_updatestringtable.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_usermessage.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_voicedata.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_voiceinit.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
     </ClInclude>
     <ClInclude Include="..\src\steam.h">
       <Filter>Header Files</Filter>
@@ -51,6 +153,15 @@
     <ClInclude Include="..\src\vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_prefetch.h">
+      <Filter>Header Files\netmsghandlers\svc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\tickdata.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\datagram.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\commandline.cpp">
@@ -64,6 +175,90 @@
     </ClCompile>
     <ClCompile Include="..\src\leynet.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_disconnect.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_file.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_nop.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_setconvar.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_signonstate.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_stringcmd.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\net\net_tick.cpp">
+      <Filter>Source Files\netmsghandlers\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_bspdecal.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_classinfo.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_createstringtable.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_crosshairangle.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_entitymessage.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_fixangle.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gameevent.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gameeventlist.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_getcvarvalue.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gmod_servertoclient.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_packetentities.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_print.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_serverinfo.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_setpause.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_setview.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_sounds.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_tempentities.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_updatestringtable.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_usermessage.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_voicedata.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_voiceinit.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
     </ClCompile>
     <ClCompile Include="..\src\steam.cpp">
       <Filter>Source Files</Filter>
@@ -79,6 +274,12 @@
     </ClCompile>
     <ClCompile Include="..\src\valve\utlbuffer.cpp">
       <Filter>Source Files\valve</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_prefetch.cpp">
+      <Filter>Source Files\netmsghandlers\svc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\datagram.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

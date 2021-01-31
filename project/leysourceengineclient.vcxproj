@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -15,7 +15,6 @@
     <IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>leysourceengineclient</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -28,7 +27,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -101,10 +100,41 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\src\commandline.h" />
+    <ClInclude Include="..\src\datagram.h" />
     <ClInclude Include="..\src\leychan.h" />
     <ClInclude Include="..\src\leychandefs.h" />
     <ClInclude Include="..\src\leynet.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_disconnect.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_file.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_nop.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_setconvar.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_signonstate.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_stringcmd.h" />
+    <ClInclude Include="..\src\netmsghandlers\net\net_tick.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_bspdecal.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_classinfo.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_createstringtable.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_crosshairangle.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_entitymessage.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_fixangle.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gameevent.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gameeventlist.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_getcvarvalue.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_gmod_servertoclient.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_packetentities.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_prefetch.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_print.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_serverinfo.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_setpause.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_setview.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_sounds.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_tempentities.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_updatestringtable.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_usermessage.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_voicedata.h" />
+    <ClInclude Include="..\src\netmsghandlers\svc\svc_voiceinit.h" />
     <ClInclude Include="..\src\steam.h" />
+    <ClInclude Include="..\src\tickdata.h" />
     <ClInclude Include="..\src\valve\buf.h" />
     <ClInclude Include="..\src\valve\checksum_crc.h" />
     <ClInclude Include="..\src\valve\clzss.h" />
@@ -115,9 +145,39 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\commandline.cpp" />
+    <ClCompile Include="..\src\datagram.cpp" />
     <ClCompile Include="..\src\leychan.cpp" />
     <ClCompile Include="..\src\leyfakeclient.cpp" />
     <ClCompile Include="..\src\leynet.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_disconnect.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_file.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_nop.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_setconvar.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_signonstate.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_stringcmd.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\net\net_tick.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_bspdecal.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_classinfo.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_createstringtable.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_crosshairangle.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_entitymessage.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_fixangle.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gameevent.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gameeventlist.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_getcvarvalue.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_gmod_servertoclient.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_packetentities.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_prefetch.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_print.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_serverinfo.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_setpause.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_setview.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_sounds.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_tempentities.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_updatestringtable.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_usermessage.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_voicedata.cpp" />
+    <ClCompile Include="..\src\netmsghandlers\svc\svc_voiceinit.cpp" />
     <ClCompile Include="..\src\steam.cpp" />
     <ClCompile Include="..\src\valve\buf.cpp" />
     <ClCompile Include="..\src\valve\checksum_crc.cpp" />

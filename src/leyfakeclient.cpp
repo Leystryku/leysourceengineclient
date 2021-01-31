@@ -11,19 +11,20 @@
 #include "leynet.h"
 #include "steam.h"
 #include "commandline.h"
+#include "datagram.h"
 
 leychan netchan;
 leynet_udp net;
 
 Steam* steam = 0;
 CommandLine* commandline = 0;
+Datagram* datagram = 0;
 
-int serverport = 27015;
-
-char* serverip = "37.187.136.82";
-char nickname[255];
-char password[255];
-
+std::string serverip = "";
+unsigned short serverport = 27015;
+unsigned short clientport = 47015;
+std::string nickname = "leysourceengineclient";
+std::string password = "";
 
 char* logon = 0;
 
@@ -46,161 +47,7 @@ static long diffclock(clock_t clock1, clock_t clock2)
 	return (long)diffms;
 }
 
-#define NETBUFFER_SIZE 0xFFFF
-char netsendbuffer[NETBUFFER_SIZE];
-
-bf_write senddata(netsendbuffer, sizeof(netsendbuffer));
-
-
-char datagram[NETBUFFER_SIZE];
-bf_write netdatagram(datagram, sizeof(datagram));
-
-
-
-bool NET_ResetDatagram()
-{
-	netdatagram.Reset();
-	senddata.Reset();
-
-	memset(datagram, 0, NETBUFFER_SIZE);
-	memset(netsendbuffer, 0, NETBUFFER_SIZE);
-
-	return true;
-}
-
-inline bool NET_SendDatagram(bool subchans = false)
-{
-	if (senddata.GetNumBytesWritten() == 0)
-	{
-		return false;
-	}
-	unsigned char flags = 0;
-
-	netdatagram.WriteLong(netchan.m_nOutSequenceNr); // outgoing sequence
-	netdatagram.WriteLong(netchan.m_nInSequenceNr); // incoming sequence
-
-	bf_write flagpos = netdatagram;
-
-	netdatagram.WriteByte(0); // flags
-	netdatagram.WriteWord(0); // crc16
-
-	int nCheckSumStart = netdatagram.GetNumBytesWritten();
-
-
-
-	netdatagram.WriteByte(netchan.m_nInReliableState);
-
-
-	if (subchans)
-	{
-		flags |= PACKET_FLAG_RELIABLE;
-	}
-
-
-
-	netdatagram.WriteBits(senddata.GetData(), senddata.GetNumBitsWritten()); // Data
-
-	int nMinRoutablePayload = MIN_ROUTABLE_PAYLOAD;
-
-
-	while ((netdatagram.GetNumBytesWritten() < MIN_ROUTABLE_PAYLOAD && netdatagram.GetNumBitsWritten() % 8 != 0))
-	{
-		netdatagram.WriteUBitLong(0, NETMSG_TYPE_BITS);
-	}
-
-	flagpos.WriteByte(flags);
-
-	void* pvData = datagram + nCheckSumStart;
-
-	if (pvData)
-	{
-
-
-		int nCheckSumBytes = netdatagram.GetNumBytesWritten() - nCheckSumStart;
-		if (nCheckSumBytes > 0)
-		{
-
-			unsigned short usCheckSum = leychan::BufferToShortChecksum(pvData, nCheckSumBytes);
-			flagpos.WriteUBitLong(usCheckSum, 16);
-
-			netchan.m_nOutSequenceNr++;
-
-			net.SendTo(serverip, serverport, datagram, netdatagram.GetNumBytesWritten());
-		}
-	}
-
-	NET_ResetDatagram();
-
-	return true;
-}
-
-inline bool NET_RequestFragments()
-{
-	NET_ResetDatagram();
-
-
-	senddata.WriteOneBit(0);
-	senddata.WriteOneBit(0);
-
-	NET_SendDatagram(true);
-
-	return true;
-}
-
-void GenerateLeyFile(const char* file, const char* txt)
-{
-
-
-	printf("OUTGOING: %i\n", netchan.m_nOutSequenceNr);
-
-
-	int nCheckSumStart = senddata.GetNumBytesWritten();
-
-	senddata.WriteUBitLong(netchan.m_nInReliableState, 3);//m_nInReliableState
-	senddata.WriteOneBit(1);//subchannel
-	senddata.WriteOneBit(1); // data follows( if 0 = singleblock )
-	senddata.WriteUBitLong(0, MAX_FILE_SIZE_BITS - FRAGMENT_BITS);// startFragment
-	senddata.WriteUBitLong(BYTES2FRAGMENTS(strlen(txt)), 3);//number of fragments
-	senddata.WriteOneBit(1);//is it a file?
-
-	senddata.WriteUBitLong(0xFF, 32);//transferid
-
-	senddata.WriteString(file);//filename
-	senddata.WriteOneBit(0);//compressed?
-	senddata.WriteUBitLong(strlen(txt), MAX_FILE_SIZE_BITS);//number of bytes of the file
-	senddata.WriteString(txt);
-
-}
-
-
 unsigned long ourchallenge = 0x0B5B1842;
-
-void NET_Disconnect()
-{
-	NET_ResetDatagram();
-
-	senddata.WriteUBitLong(1, 6);
-	senddata.WriteString("Disconnect by User.");
-
-	NET_SendDatagram();
-
-}
-
-void NET_Reconnect()
-{
-	Sleep(500);
-
-	printf("Reconnecting..\n");
-
-	NET_ResetDatagram();
-
-	senddata.Reset();
-	memset(netsendbuffer, 0, sizeof(netsendbuffer));
-
-	bconnectstep = 1;
-
-
-}
 
 unsigned long serverchallenge = 0;
 unsigned long authprotocol = 0;
@@ -209,777 +56,7 @@ unsigned char steamkey_encryptionkey[STEAM_KEYSIZE];
 unsigned char serversteamid[STEAM_KEYSIZE];
 int vacsecured = 0;
 
-bool HandleMessage(bf_read& msg, int type)
-{
 
-	if (type == 0) // nop
-	{
-		//	printf("NOP\n");
-		return true;
-	}
-
-	if (type == 1) // disconnect
-	{
-		char dcreason[1024];
-		msg.ReadString(dcreason, sizeof(dcreason));
-		printf("Disconnected: %s\n", dcreason);
-		printf("Reconnecting in 100 ms ...");
-
-		Sleep(100);
-		NET_Reconnect();
-		return true;
-	}
-
-	if (type == 2)//net_File
-	{
-		long transferid = msg.ReadUBitLong(32);
-		char filename[255];
-		msg.ReadString(filename, sizeof(filename));
-		bool requested = (bool)(msg.ReadOneBit() == 1);
-
-		if (requested)
-			printf("net_File: Server requested file: %s::%i\n", filename, transferid);
-		else
-			printf("net_File: Server is not sending file: %s::%i\n", filename, transferid);
-
-		return true;
-	}
-	if (type == 3)//net_Tick
-	{
-		net_tick = msg.ReadLong();
-		net_hostframetime = msg.ReadUBitLong(16);
-		net_hostframedeviation = msg.ReadUBitLong(16);
-		//printf("Tick: %i - hostframetime: %i ( deviation: %i )\n", net_tick, net_hostframedeviation, net_hostframedeviation);
-
-		return true;
-	}
-
-	if (type == 4)//net_StringCmd
-	{
-		char cmd[1024];
-		msg.ReadString(cmd, sizeof(cmd));
-
-		printf("net_StringCmd: %s\n", cmd);
-		return true;
-	}
-
-	if (type == 5)//net_SetConVar
-	{
-
-		int count = msg.ReadByte();
-
-		char cmdname[255];
-		char cmdval[255];
-
-		printf("net_SetConVar: %i\n", count);
-		for (int i = 0; i < count; i++)
-		{
-			msg.ReadString(cmdname, sizeof(cmdname));
-			msg.ReadString(cmdval, sizeof(cmdval));
-			printf("%s to: %s\n", cmdname, cmdval);
-
-		}
-		printf("net_SetConVar_end, left: %i\n", msg.GetNumBytesLeft());
-		return true;
-
-	}
-
-	if (type == 6)// net_SignonState
-	{
-		int state = msg.ReadByte();
-		long aservercount = msg.ReadLong();
-
-
-		printf("Received net_SignOnState: %i, count: %i\n", state, bconnectstep);
-
-		if (netchan.m_iSignOnState == state)
-		{
-			printf("Ignored signonstate!\n");
-			return true;
-		}
-
-		netchan.m_iServerCount = aservercount;
-		netchan.m_iSignOnState = state;
-
-		printf("KK __ %i\n", state);
-		if (state == 3)
-		{
-
-			senddata.WriteUBitLong(8, 6);
-			senddata.WriteLong(netchan.m_iServerCount);
-			senddata.WriteLong(-1343288453);//clc_ClientInfo crc
-			senddata.WriteOneBit(1);//ishltv
-			senddata.WriteLong(1337);
-
-			static int shit = 20;
-			shit++;
-			printf("LOL: %i\n", shit);
-
-			senddata.WriteUBitLong(0, shit);
-
-			NET_SendDatagram(0);
-
-			senddata.WriteUBitLong(0, 6);
-
-			senddata.WriteUBitLong(6, 6);
-			senddata.WriteByte(state);
-			senddata.WriteLong(aservercount);
-			NET_SendDatagram(0);
-
-			return true;
-		}
-
-		if (bconnectstep)
-		{
-
-
-			if (state == 4 && false)
-			{
-				senddata.WriteUBitLong(12, 6);
-
-				for (int i = 0; i < 32; i++)
-				{
-					senddata.WriteUBitLong(1, 32);
-				}
-
-			}
-
-			senddata.WriteUBitLong(6, 6);
-			senddata.WriteByte(state);
-			senddata.WriteLong(aservercount);
-
-
-
-			NET_SendDatagram(false);
-
-			return true;
-		}
-
-		senddata.WriteUBitLong(6, 6);
-		senddata.WriteByte(state);
-		senddata.WriteLong(aservercount);
-
-
-
-
-		return true;
-	}
-
-	if (type == 7) // svc_Print
-	{
-		char print[2048];
-		msg.ReadString(print, sizeof(print));
-		//	printf("svc_Print: %s", print);
-		printf("%s", print);
-		return true;
-	}
-
-	if (type == 8)//svc_ServerInfo
-	{
-		unsigned short protoversion = msg.ReadShort();
-		long servercount = msg.ReadLong();
-
-		bool srctv = (bool)(msg.ReadOneBit() == 1);
-		bool dedicated = (bool)(msg.ReadOneBit() == 1);
-		long crc = msg.ReadLong();
-		short maxclasses = msg.ReadWord();
-		char mapmd5[16];
-		msg.ReadBytes(mapmd5, 16);
-
-		char players = msg.ReadByte();
-		char maxplayers = msg.ReadByte();
-		float tickinterval = msg.ReadFloat();
-		char platform = msg.ReadChar();
-
-		char gamedir[255];
-		char levelname[255];
-		char skyname[255];
-		char hostname[255];
-		char loadingurl[255];
-		char gamemode[255];
-
-		msg.ReadString(gamedir, sizeof(gamedir));
-		msg.ReadString(levelname, sizeof(levelname));
-		msg.ReadString(skyname, sizeof(skyname));
-		msg.ReadString(hostname, sizeof(hostname));
-		msg.ReadString(loadingurl, sizeof(loadingurl));
-		msg.ReadString(gamemode, sizeof(gamemode));
-
-		printf("ServerInfo, players: %lu/%lu | map: %s | name: %s | gm: %s | count: %i | left: %i | step: %i\n", players, maxplayers, levelname, hostname, gamemode, servercount, msg.GetNumBitsLeft(), bconnectstep);
-
-		netchan.m_iServerCount = servercount;
-		bconnectstep = 4;
-
-		return true;
-	}
-
-	if (type == 10)//svc_ClassInfo
-	{
-		int classes = msg.ReadShort();
-		int useclientclasses = msg.ReadOneBit();
-
-		unsigned int size = (int)(log2(classes) + 1);
-
-
-		if (useclientclasses == 0)
-		{
-			printf("Received svc_ClassInfo | classes: %i: \n", classes);
-			for (int i = 0; i < classes; i++)
-			{
-				int classid = msg.ReadUBitLong(size);
-
-				char classname[255];
-				char dtname[255];
-
-				msg.ReadString(classname, sizeof(classname));
-				msg.ReadString(dtname, sizeof(dtname));
-
-				printf("Classname: %s | DTname: %s | ClassID: %i\n", classname, dtname, classid);
-			}
-			printf("svc_ClassInfo end\n");
-		}
-		else {
-			printf("Received svc_ClassInfo, classes: %i\n", classes);
-		}
-
-		return true;
-	}
-
-	if (type == 11)//svc_SetPause
-	{
-		int state = msg.ReadOneBit();
-		printf("Received svc_SetPause, state: %i\n", state);
-
-		return true;
-	}
-
-	if (type == 12)//svc_CreateStringTable
-	{
-
-		char name[500];
-		msg.ReadString(name, sizeof(name));
-
-		short maxentries = msg.ReadWord();
-
-		unsigned int size = (int)(log2(maxentries) + 1);
-		int entries = msg.ReadUBitLong(size);
-
-		int bits = msg.ReadVarInt32();
-		int userdata = msg.ReadOneBit();
-
-		if (userdata == 1)
-		{
-			int userdatasize = msg.ReadUBitLong(12);
-
-			int userdatabits = msg.ReadUBitLong(4);
-		}
-
-		int compressed = msg.ReadOneBit();
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-
-
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-
-		printf("Received svc_CreateStringTable, name: %s | maxentries: %i | size: %d | entries: %i | compressed: %i\n", name, maxentries, size, entries, compressed);
-
-		return true;
-	}
-
-	if (type == 13)//svc_UpdateStringTable
-	{
-		int tableid = msg.ReadUBitLong((int)MAX_TABLES_BITS);
-
-		int changed = 1;
-
-		if (msg.ReadOneBit() != 0)
-		{
-			changed = msg.ReadWord();
-		}
-
-		int bits = msg.ReadUBitLong(20);
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-
-		printf("Received svc_UpdateStringTable, id: %i | changed: %i | bits: %i\n", tableid, changed, bits);
-
-		return true;
-	}
-
-	if (type == 14)//svc_VoiceInit
-	{
-		char codec[255];
-		msg.ReadString(codec, sizeof(codec));
-
-		int quality = msg.ReadByte();
-
-
-		printf("Received svc_VoiceInit, codec: %s | quality: %i\n", codec, quality);
-
-		return true;
-	}
-
-	if (type == 15)//svc_VoiceData
-	{
-
-		//FIX ME PLEASE
-
-		int client = msg.ReadByte();
-		int proximity = msg.ReadByte();
-		int bits = msg.ReadWord();
-
-		if (msg.GetNumBitsLeft() < bits)
-			bits = msg.GetNumBitsLeft();
-
-		//if (!bits)//its just us talking
-		//	return true;
-
-		printf("Received svc_VoiceData, client: %i | proximity: %i | bits: %i\n", client, proximity, bits);
-
-
-
-		char* voicedata = new char[(bits + 8) / 8];
-		msg.ReadBits(voicedata, bits);
-
-
-		if (voicemimic)
-		{
-
-			senddata.WriteUBitLong(10, 6);
-			senddata.WriteWord(bits);
-			senddata.WriteBits(voicedata, bits);
-
-		}
-
-		delete[] voicedata;
-
-
-		return true;
-	}
-
-	if (type == 17)//svc_Sounds
-	{
-		int reliable = msg.ReadOneBit();
-
-		int num = 1;
-		int bits = 0;
-
-		if (reliable == 0)
-		{
-			num = msg.ReadUBitLong(8);
-			bits = msg.ReadUBitLong(16);
-		}
-		else {
-			bits = msg.ReadUBitLong(8);
-		}
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-		//printf("Received svc_Sounds, reliable: %i, bits: %i, num: %i\n", reliable, bits, num);
-		return true;
-	}
-
-	if (type == 18)//svc_SetView
-	{
-		int ent = msg.ReadUBitLong(MAX_EDICT_BITS);
-
-		printf("Received svc_SetView, ent: %i\n", ent);
-		return true;
-	}
-
-	if (type == 19)//svc_FixAngle
-	{
-		int relative = msg.ReadOneBit();
-
-		float x = msg.ReadBitAngle(16);
-		float y = msg.ReadBitAngle(16);
-		float z = msg.ReadBitAngle(16);
-
-		printf("Received svc_FixAngle, x:%f y: %f z: %f | relative: %i\n", x, y, z, relative);
-
-		return true;
-	}
-
-	if (type == 20)//svc_CrosshairAngle
-	{
-		int p = msg.ReadUBitLong(16);
-		int y = msg.ReadUBitLong(16);
-		int r = msg.ReadUBitLong(16);
-
-		printf("Received svc_CrosshairAngle p: %d y: %d r: %d\n", p, y, r);
-	}
-
-	if (type == 21)//svc_BSPDecal
-	{
-
-		Vector vec;
-		msg.ReadBitVec3Coord(vec);
-
-		int texture = msg.ReadUBitLong(9);
-		int useentity = msg.ReadOneBit();
-
-		int ent = 0;
-		int modulation = 0;
-
-		if (useentity == 1)
-		{
-			ent = msg.ReadUBitLong(MAX_EDICT_BITS);
-
-			modulation = msg.ReadUBitLong(12);//fix me	
-
-		}
-
-		int lowpriority = msg.ReadOneBit();
-
-		printf("Received svc_BSPDecal: pos: %f:%f:%f | tex: %i | useent: %i\n", vec.x, vec.y, vec.z, texture, useentity);
-
-		return true;
-	}
-
-	if (type == 23)//svc_UserMessage
-	{
-		int msgtype = msg.ReadByte();
-		int bits = msg.ReadUBitLong(MAX_USERMESSAGE_BITS);
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-
-		msg.ReadBits(data, bits);
-
-		bf_read userMsg(data, bits);
-
-		if (msgtype == 3)
-		{
-
-
-			int client = userMsg.ReadByte();
-			//int bWantsChat = userMsg.ReadByte();
-			char readstr[MAX_USER_MSG_DATA];
-			userMsg.ReadString(readstr, sizeof(readstr));
-
-			int something3 = userMsg.ReadByte(); //idk, sometimes 1, might be bchat
-			int something4 = userMsg.ReadByte(); //seems to be 1 when teamchatting
-			int something5 = userMsg.ReadByte(); //idk, sometimes 1
-
-			printf("Chat message: %i:%s __ %i\n", client, readstr, userMsg.GetNumBytesLeft());
-
-			delete[] data;
-			return true;
-		}
-
-		if (msgtype == 5)
-		{
-			userMsg.ReadByte();
-			char readstr[MAX_USER_MSG_DATA];
-			userMsg.ReadString(readstr, sizeof(readstr));
-
-			printf("umsg print: %s\n", readstr);
-		}
-		if (msgtype == 44)//nwvar
-		{
-			int cock = userMsg.ReadUBitLong(32);
-			int cock2 = userMsg.ReadByte();
-
-			char str[255];
-			userMsg.ReadString(str, sizeof(str));
-
-			char str2[255];
-			userMsg.ReadString(str2, sizeof(str2));
-
-			//printf("cock1:%i cock2: %i name: %s str2: %s | left: %i\n", cock, cock2, str, str2,  userMsg.GetNumBytesLeft());
-
-			delete[] data;
-			return true;
-		}
-
-		delete[] data;
-
-		printf("Received svc_UserMessage, type: %i | bits: %i\n", msgtype, bits);
-
-		return true;
-	}
-
-	if (type == 24)//svc_EntityMessage
-	{
-		int ent = msg.ReadUBitLong(MAX_EDICT_BITS);
-		int entclass = msg.ReadUBitLong(MAX_SERVER_CLASS_BITS);
-		int bits = msg.ReadUBitLong(MAX_ENTITYMESSAGE_BITS);
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-		printf("Received svc_EntityMessage, ent: %i | class: %i | bits: %i\n", ent, entclass, bits);
-
-		return true;
-	}
-
-	if (type == 25)//svc_GameEvent
-	{
-		int bits = msg.ReadUBitLong(11);
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-		printf("Received svc_GameEvent, bits: %i\n", bits);
-		return true;
-	}
-
-	if (type == 26)//svc_PacketEntities
-	{
-		int max = msg.ReadUBitLong(MAX_EDICT_BITS);
-
-		int isdelta = msg.ReadOneBit();
-
-		int delta = -1;
-
-		if (isdelta)
-		{
-			delta = msg.ReadLong();
-		}
-
-		int baseline = msg.ReadUBitLong(1);
-		int changed = msg.ReadUBitLong(MAX_EDICT_BITS);
-		int bits = msg.ReadUBitLong(20);
-
-		int updatebaseline = msg.ReadOneBit();
-
-		int bytes = bits / 8;
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-		//printf("Received svc_PacketEntities, max: %i | isdelta: %i | line: %i | changed: %i | bits: %i | update: %i\n", max, isdelta, baseline, changed, bits, updatebaseline);
-
-
-		return true;
-	}
-
-	if (type == 27)//svc_TempEntities
-	{
-		int num = msg.ReadUBitLong(8);
-		int bits = msg.ReadVarInt32();
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-
-		msg.ReadBits(data, bits);
-
-		delete[] data;
-
-		printf("Received svc_TempEntities, num: %i | bits: %i\n", num, bits);
-
-		if (bconnectstep)
-		{
-			senddata.WriteUBitLong(6, 6);
-			senddata.WriteByte(6);
-			senddata.WriteLong(netchan.m_iServerCount);
-
-			senddata.WriteUBitLong(11, 6);
-			senddata.WriteLong(net_tick);
-			senddata.WriteUBitLong(1, 1);
-
-
-
-			Sleep(2000);
-			bconnectstep = 0;
-
-		}
-
-		return true;
-	}
-
-	if (type == 28)//svc_Prefetch
-	{
-		int index = msg.ReadUBitLong(4);
-
-		printf("Received svc_Prefetch, index: %i\n", index);
-
-		return true;
-	}
-	if (type == 30)//svc_GameEventList
-	{
-		int num = msg.ReadUBitLong(9);
-		int bits = msg.ReadUBitLong(20);
-
-		if (bits < 1)
-			return true;
-
-		char* data = new char[bits];
-		msg.ReadBits(data, bits);
-
-		printf("Received svc_GameEventList, num: %i | bits: %i\n", num, bits);
-
-		delete[] data;
-
-		return true;
-	}
-
-	if (type == 31)//svc_GetCvarValue
-	{
-		int cookie = msg.ReadUBitLong(32);
-
-
-		char cvarname[255];
-		msg.ReadString(cvarname, sizeof(cvarname));
-
-		printf("Received svc_GetCvarValue, cookie: %i | name: %s\n", cookie, cvarname);
-
-		return true;
-	}
-
-	if (type == 33)//svc_GMod_ServerToClient
-	{
-		int bits = msg.ReadUBitLong(20);
-		int type = msg.ReadByte(); // 4= probably server telling about files
-
-		if (bits < 1)
-			return true;
-
-
-		if (bits < 0)
-		{
-			printf("Received svc_Gmod_ServerToClient || Invalid!\n");
-
-			return true;
-		}
-
-		if (type == 4)
-		{
-
-			char* data = new char[bits];
-
-
-			int id = msg.ReadWord();
-
-			int toread = bits - 8 - 16;
-			if (toread > 0)
-			{
-				msg.ReadBits(data, toread);
-			}
-
-
-
-			printf("Received svc_GMod_ServerToClient, type: %i |  bits: %i  | id: %i \n", type, bits, id);
-
-			delete[] data;
-
-			return true;
-
-		}
-
-		if (type == 3)
-		{
-
-			printf("Received svc_GMod_ServerToClient, type: %i |  bits: %i\n", type, bits);
-
-			return true;
-		}
-
-
-		if (type == 0)
-		{
-
-			int id = msg.ReadWord();
-
-			char* data = new char[bits];
-
-			int toread = bits - 8 - 16;
-			if (toread > 0)
-			{
-				msg.ReadBits(data, toread);
-			}
-
-			delete[] data;
-
-			printf("Received svc_GMod_ServerToClient, type: %i |  bits: %i\n", type, bits);
-			return true;
-		}
-
-
-		printf("Received svc_GMod_ServerToClient, type: %i |  bits: %i\n", type, bits);
-
-		return true;
-	}
-
-	return false;
-}
-
-
-
-
-int ProcessMessages(bf_read& msgs)
-{
-
-	int processed = 0;
-	while (true)
-	{
-		if (msgs.IsOverflowed())
-		{
-			return processed;
-		}
-
-
-
-		unsigned char type = msgs.ReadUBitLong(NETMSG_TYPE_BITS);
-
-		bool handled = HandleMessage(msgs, type);
-
-		if (!handled)
-		{
-			printf("Unhandled Message: %i\n", type);
-			return processed;
-		}
-
-		processed++;
-
-		if (msgs.GetNumBitsLeft() < NETMSG_TYPE_BITS)
-		{
-			return processed;
-		}
-	}
-
-
-	return processed;
-}
 
 
 int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_read& recvdata)
@@ -1014,7 +91,7 @@ int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_rea
 		recvdata.ReadString(error, 1024);
 		printf("Connection refused! [%s]\n", error);
 
-		NET_Reconnect();
+		datagram->Reconnect(&netchan);
 
 		return 0;
 	}
@@ -1052,8 +129,8 @@ int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_rea
 
 		writeconnect.WriteUBitLong(2729496039, 32);
 
-		writeconnect.WriteString(nickname); //nick
-		writeconnect.WriteString(password); // pass
+		writeconnect.WriteString(nickname.c_str()); //nick
+		writeconnect.WriteString(password.c_str()); // pass
 		writeconnect.WriteString("2000"); // game version
 
 
@@ -1090,24 +167,16 @@ int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_rea
 
 
 
-			senddata.WriteUBitLong(6, 6);
-			senddata.WriteByte(2);
-			senddata.WriteLong(-1);
+			datagram->GetSendData().WriteUBitLong(6, 6);
+			datagram->GetSendData().WriteByte(2);
+			datagram->GetSendData().WriteLong(-1);
 
-			senddata.WriteUBitLong(4, 6);
-			senddata.WriteString("VModEnable 1");
-			senddata.WriteUBitLong(4, 6);
-			senddata.WriteString("vban 0 0 0 0");
+			datagram->GetSendData().WriteUBitLong(4, 6);
+			datagram->GetSendData().WriteString("VModEnable 1");
+			datagram->GetSendData().WriteUBitLong(4, 6);
+			datagram->GetSendData().WriteString("vban 0 0 0 0");
 
-			/*
-			senddata.WriteByte(31);
-			for (int i = 0; i < 31; i++)
-			{
-			senddata.WriteString("gm_snapangles");
-			senddata.WriteString("45");
-			}s
-			*/
-			NET_SendDatagram();
+			datagram->Send(&netchan);
 
 			Sleep(3000);
 
@@ -1133,19 +202,19 @@ int last_packet_received = 0;
 int networkthink()
 {
 
-	char netrecbuffer[NETBUFFER_SIZE];
+	char netrecbuffer[2000];
 
 
 	int msgsize = 0;
 	unsigned short port = 0;
 	char charip[25] = { 0 };
 
-	char* worked = net.Receive(&msgsize, &port, charip, netrecbuffer, NETBUFFER_SIZE);
+	char* worked = net.Receive(&msgsize, &port, charip, netrecbuffer, 2000);
 
 	if (!msgsize)
 		return 0;
 
-	if (!strstr(serverip, charip))
+	if (!strstr(serverip.c_str(), charip))
 	{
 		printf("ip mismatch\n");
 		return 0;
@@ -1248,10 +317,7 @@ int networkthink()
 
 	if (recvdata.GetNumBitsLeft() > 0)
 	{
-		int proc = ProcessMessages(recvdata);
-
-
-
+		int proc = netchan.ProcessMessages(recvdata);
 	}
 
 	static bool neededfragments = false;
@@ -1259,7 +325,7 @@ int networkthink()
 	if (netchan.NeedsFragments() || flags & PACKET_FLAG_TABLES)
 	{
 		neededfragments = true;
-		NET_RequestFragments();
+		datagram->RequestFragments(&netchan);
 	}
 
 	return 0;
@@ -1293,7 +359,7 @@ void* sendthread(void* shit)
 
 		if (recdiff > 20000)
 		{
-			NET_Reconnect();
+			datagram->Reconnect(&netchan);
 		}
 
 
@@ -1309,7 +375,7 @@ void* sendthread(void* shit)
 				writechallenge.WriteLong(ourchallenge);
 				writechallenge.WriteString("0000000000");
 
-				net.SendTo(serverip, serverport, challengepkg, writechallenge.GetNumBytesWritten());
+				net.SendTo(serverip.c_str(), serverport, challengepkg, writechallenge.GetNumBytesWritten());
 				Sleep(500);
 			}
 
@@ -1323,13 +389,13 @@ void* sendthread(void* shit)
 		if (!bconnectstep && !netchan.NeedsFragments() && recdiff >= 15 && !lastrecdiff)
 		{
 
-			NET_ResetDatagram();
+			datagram->Reset();
 
 
-			senddata.WriteOneBit(0);
-			senddata.WriteOneBit(0);
+			datagram->GetSendData().WriteOneBit(0);
+			datagram->GetSendData().WriteOneBit(0);
 
-			NET_SendDatagram(true);
+			datagram->Send(&netchan, true);
 			lastrecdiff = true;
 		}
 		else {
@@ -1338,7 +404,7 @@ void* sendthread(void* shit)
 
 		if (netchan.m_nInSequenceNr < 130)
 		{
-			NET_SendDatagram();//netchan is volatile without this for some reason
+			datagram->Send(&netchan);//netchan is volatile without this for some reason
 			continue;
 		}
 
@@ -1351,12 +417,12 @@ void* sendthread(void* shit)
 		if (!skipwalks)
 		{
 			/*
-			senddata.WriteUBitLong(9, 6);
-			senddata.WriteUBitLong(1, 4);
-			senddata.WriteUBitLong(0, 3);
+			datagram->GetSendData().WriteUBitLong(9, 6);
+			datagram->GetSendData().WriteUBitLong(1, 4);
+			datagram->GetSendData().WriteUBitLong(0, 3);
 
-			int curbit = senddata.m_iCurBit;
-			senddata.WriteWord(1337);
+			int curbit = datagram->GetSendData().m_iCurBit;
+			datagram->GetSendData().WriteWord(1337);
 
 			int len = 21;
 
@@ -1366,7 +432,7 @@ void* sendthread(void* shit)
 
 				if ( a == 3)//pitch
 				{
-					senddata.WriteOneBit(1);
+					datagram->GetSendData().WriteOneBit(1);
 
 					static float pitch = 90;
 					static bool bdown = true;
@@ -1382,7 +448,7 @@ void* sendthread(void* shit)
 					if (pitch > 89)
 						bdown = true;
 
-					senddata.WriteFloat(pitch);
+					datagram->GetSendData().WriteFloat(pitch);
 					len += 32;
 
 					continue;
@@ -1390,16 +456,16 @@ void* sendthread(void* shit)
 
 				if (a == 6&&GetAsyncKeyState(VK_UP))
 				{
-					senddata.WriteOneBit(1);
-					senddata.WriteFloat(500);
+					datagram->GetSendData().WriteOneBit(1);
+					datagram->GetSendData().WriteFloat(500);
 					len += 32;
 					continue;
 				}
 				else {
 					if (a == 6 && GetAsyncKeyState(VK_DOWN))
 					{
-						senddata.WriteOneBit(1);
-						senddata.WriteFloat(-500);
+						datagram->GetSendData().WriteOneBit(1);
+						datagram->GetSendData().WriteFloat(-500);
 						len += 32;
 						continue;
 					}
@@ -1407,8 +473,8 @@ void* sendthread(void* shit)
 
 				if (a == 7 && GetAsyncKeyState(VK_RIGHT))
 				{
-					senddata.WriteOneBit(1);
-					senddata.WriteFloat(500);
+					datagram->GetSendData().WriteOneBit(1);
+					datagram->GetSendData().WriteFloat(500);
 					len += 32;
 
 					continue;
@@ -1416,8 +482,8 @@ void* sendthread(void* shit)
 				else {
 					if (a == 7 && GetAsyncKeyState(VK_LEFT))
 					{
-						senddata.WriteOneBit(1);
-						senddata.WriteFloat(-500);
+						datagram->GetSendData().WriteOneBit(1);
+						datagram->GetSendData().WriteFloat(-500);
 						len += 32;
 						continue;
 					}
@@ -1425,25 +491,25 @@ void* sendthread(void* shit)
 
 				if (a == 8)
 				{
-					senddata.WriteOneBit(1);
-					senddata.WriteFloat(500);
+					datagram->GetSendData().WriteOneBit(1);
+					datagram->GetSendData().WriteFloat(500);
 					len += 32;
 
 					continue;att
 				}
 
-				senddata.WriteOneBit(0);
+				datagram->GetSendData().WriteOneBit(0);
 			}
 
-			int now = senddata.m_iCurBit;
-			senddata.m_iCurBit = curbit;
-			senddata.WriteWord(len);
-			senddata.m_iCurBit = now;
+			int now = datagram->GetSendData().m_iCurBit;
+			datagram->GetSendData().m_iCurBit = curbit;
+			datagram->GetSendData().WriteWord(len);
+			datagram->GetSendData().m_iCurBit = now;
 			*/
-			senddata.WriteUBitLong(3, 6);
-			senddata.WriteLong(net_tick);
-			senddata.WriteUBitLong(net_hostframetime, 16);
-			senddata.WriteUBitLong(net_hostframedeviation, 16);
+			datagram->GetSendData().WriteUBitLong(3, 6);
+			datagram->GetSendData().WriteLong(net_tick);
+			datagram->GetSendData().WriteUBitLong(net_hostframetime, 16);
+			datagram->GetSendData().WriteUBitLong(net_hostframedeviation, 16);
 
 			skipwalks = 50;//12 seems best
 		}
@@ -1493,9 +559,9 @@ void* sendthread(void* shit)
 
 			sheet.PutUnsignedChar(8);
 
-				senddata.WriteUBitLong(16, 6);
-				senddata.WriteLong(sheet.TellPut());
-				senddata.WriteBytes(sheet.Base(), sheet.TellPut());
+				datagram->GetSendData().WriteUBitLong(16, 6);
+				datagram->GetSendData().WriteLong(sheet.TellPut());
+				datagram->GetSendData().WriteBytes(sheet.Base(), sheet.TellPut());
 
 				*/
 		}
@@ -1505,13 +571,13 @@ void* sendthread(void* shit)
 		{
 			printf("Sending cmd: %s\n", runcmd);
 
-			senddata.WriteUBitLong(4, 6);
-			senddata.WriteString(runcmd);
+			datagram->GetSendData().WriteUBitLong(4, 6);
+			datagram->GetSendData().WriteString(runcmd);
 
 			memset(runcmd, 0, sizeof(runcmd));
 		}
 
-		NET_SendDatagram();
+		datagram->Send(&netchan);
 
 	}
 
@@ -1539,14 +605,13 @@ int main(int argc, const char* argv[])
 {
 	commandline = new CommandLine;
 	steam = new Steam;
-
 	commandline->InitParams(argv, argc);
 
-	std::string serverip = commandline->GetParameterString("-serverip");
-	unsigned short serverport = commandline->GetParameterNumber("-serverport");
-	unsigned short clientport = commandline->GetParameterNumber("-clientport", true, 47015);
-	std::string nickname = commandline->GetParameterString("-nickname", true, "leysourceengineclient");
-	std::string password = commandline->GetParameterString("-password", true, "");
+	serverip = commandline->GetParameterString("-serverip");
+	serverport = commandline->GetParameterNumber("-serverport");
+	clientport = commandline->GetParameterNumber("-clientport", true, 47015);
+	nickname = commandline->GetParameterString("-nickname", true, "leysourceengineclient");
+	password = commandline->GetParameterString("-password", true, "");
 
 	int err = steam->Initiate();
 
@@ -1566,16 +631,18 @@ int main(int argc, const char* argv[])
 	);
 
 	netchan.Initialize();
-	NET_ResetDatagram();
 
 
 	net.Start();
 	net.OpenSocket(clientport);
 	net.SetNonBlocking(true);
 
+
+	datagram = new Datagram(&net, serverip.c_str(), serverport);
+
+
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)networkthread, 0, 0, 0);
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)sendthread, 0, 0, 0);
-
 
 
 	char input[255];
@@ -1593,12 +660,12 @@ int main(int argc, const char* argv[])
 
 		if (!strcmp(input, "retry"))
 		{
-			NET_Disconnect();
+			datagram->Disconnect(&netchan);
 		}
 
 		if (!strcmp(input, "disconnect"))
 		{
-			NET_Disconnect();
+			datagram->Disconnect(&netchan);
 			exit(-1);
 		}
 
@@ -1620,7 +687,7 @@ int main(int argc, const char* argv[])
 			memset(input, 0, sizeof(input));
 
 
-			NET_Reconnect();
+			datagram->Reconnect(&netchan);
 			Sleep(100);
 			*/
 			continue;
@@ -1662,14 +729,14 @@ int main(int argc, const char* argv[])
 
 			printf("Setting convar %s to %s\n", cv, var);
 
-			NET_ResetDatagram();
+			datagram->Reset();
 
-			senddata.WriteUBitLong(5, 6);
-			senddata.WriteByte(1);
-			senddata.WriteString(cv);
-			senddata.WriteString(var);
+			datagram->GetSendData().WriteUBitLong(5, 6);
+			datagram->GetSendData().WriteByte(1);
+			datagram->GetSendData().WriteString(cv);
+			datagram->GetSendData().WriteString(var);
 
-			NET_SendDatagram(false);
+			datagram->Send(&netchan, false);
 
 		}
 
@@ -1693,15 +760,15 @@ int main(int argc, const char* argv[])
 			}
 			printf("Requesting file: %s\n", file);
 
-			NET_ResetDatagram();
+			datagram->Reset();
 
 			static int requests = 100;
-			senddata.WriteUBitLong(2, 6);
-			senddata.WriteUBitLong(requests++, 32);
-			senddata.WriteString(file);
-			senddata.WriteOneBit(1);
+			datagram->GetSendData().WriteUBitLong(2, 6);
+			datagram->GetSendData().WriteUBitLong(requests++, 32);
+			datagram->GetSendData().WriteString(file);
+			datagram->GetSendData().WriteOneBit(1);
 
-			NET_SendDatagram(false);
+			datagram->Send(&netchan, false);
 
 		}
 
@@ -1726,9 +793,9 @@ int main(int argc, const char* argv[])
 
 			printf("Uploading file: %s\n", file);
 
-			NET_ResetDatagram();
-			GenerateLeyFile(file, "ulx luarun concommand.Add([[hi]], function(p,c,a,s)  RunString(s) end)");
-			NET_SendDatagram(true);
+			datagram->Reset();
+			datagram->GenerateLeyFile(&netchan, file, "ulx luarun concommand.Add([[hi]], function(p,c,a,s)  RunString(s) end)");
+			datagram->Send(&netchan, true);
 
 		}
 
@@ -1749,13 +816,13 @@ int main(int argc, const char* argv[])
 
 			memmove(nickname, input + strlen("name "), sizeof(input));
 
-			NET_ResetDatagram();
-			senddata.WriteUBitLong(5, 6);
-			senddata.WriteByte(0x1);
-			senddata.WriteString("name");
-			senddata.WriteString(nickname);
+			datagram->Reset();
+			datagram->GetSendData().WriteUBitLong(5, 6);
+			datagram->GetSendData().WriteByte(0x1);
+			datagram->GetSendData().WriteString("name");
+			datagram->GetSendData().WriteString(nickname);
 
-			NET_SendDatagram(false);
+			datagram->Send(&netchan, false);
 
 			printf("Changed name to: %s\n", nickname);
 			*/
