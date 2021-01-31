@@ -6,16 +6,12 @@
 #include "valve/utlbuffer.h"
 #include "../deps/osw/Steamworks.h"
 #include "../deps/osw/ISteamUser017.h"
+
 #include "leychan.h"
 #include "leynet.h"
+#include "steam.h"
 
-HSteamPipe g_hSteamPipe;
-HSteamUser g_hSteamUser;
-
-ISteamClient017* steamclient = 0;
-IClientEngine* clientengine = 0;
-ISteamUser017* steamuser = 0;
-IClientAudio* clientaudio = 0;
+Steam* steam = 0;
 
 extern leychan* netchan;
 
@@ -569,12 +565,12 @@ bool HandleMessage(bf_read& msg, int type)
 			char* uncompressed = new char[0xFFFF];
 			unsigned int uncompressed_size = 0;
 
-
+			/*
 			EVoiceResult worked = clientaudio->DecompressVoice(voicedata, bits / 8, uncompressed, 0xFFFF, &uncompressed_size, clientaudio->GetVoiceOptimalSampleRate());
 
 			if (worked == k_EVoiceResultOK)
 			{
-				/*
+
 				HWAVEOUT hWaveOut = 0;
 				WAVEHDR header = { uncompressed, uncompressed_size, 0, 0, 0, 0, 0, 0 };
 
@@ -585,12 +581,12 @@ bool HandleMessage(bf_read& msg, int type)
 				waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
 
 				waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-				waveOutClose(hWaveOut);*/
+				waveOutClose(hWaveOut);
 			}
 			else {
 				printf("RIP AUDIO: %i\n", worked);
 				delete[] uncompressed;
-			}
+			}*/
 
 
 			delete[] voicedata;
@@ -1134,9 +1130,9 @@ int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_rea
 		unsigned char steamkey[STEAM_KEYSIZE];
 		unsigned int keysize = 0;
 
-		steamuser->GetAuthSessionTicket(steamkey, STEAM_KEYSIZE, &keysize);
+		steam->GetSteamUser()->GetAuthSessionTicket(steamkey, STEAM_KEYSIZE, &keysize);
 
-		CSteamID localsid = steamuser->GetSteamID();
+		CSteamID localsid = steam->GetSteamUser()->GetSteamID();
 
 		writeconnect.WriteShort(242);
 		unsigned long long steamid64 = localsid.ConvertToUint64();
@@ -1593,85 +1589,20 @@ void* sendthread(void* shit)
 
 }
 
-int parseip(const char* serverip_and_port, char*& ip, int& port)
+int parseip(char* ipwithport, char*& ip, int& port)
 {
+	char* parseip = NULL;
+	char* parseport = NULL;
 
-	char cserverport[25];
-	char cserverip[30];
+	parseip = strtok(ipwithport, ":");
 
-	bool found_semicolon = false;
-
-	for (unsigned int i = 0; i < strlen(serverip_and_port); i++)
-	{
-		if (serverip_and_port[i] == ':')
-		{
-			found_semicolon = true;
-			strncpy(cserverip, serverip_and_port, i);
-			cserverip[i] = 0;
-
-			strncpy(cserverport, serverip_and_port + i + 1, strlen(serverip_and_port) - 1);
-			cserverport[strlen(serverip_and_port) - 1] = 0;
-
-			break;
-		}
-	}
-
-	strcpy(ip, cserverip);
-	port = atoi(cserverport);
-
-	return 1;
-}
-
-#include <Shlwapi.h>
-
-std::string obtain_steam_folder(void)
-{
-	char buf[MAX_PATH];
-	DWORD buf_length = sizeof(buf);
-	DWORD type = REG_SZ;
-
-	if (SHGetValue(HKEY_CURRENT_USER, TEXT("Software\\Valve\\Steam"), TEXT("SteamPath"), &type, buf, &buf_length) != ERROR_SUCCESS)
-		MessageBox(0, "No Steam-directory found (HKEY_CURRENT_USER\\Software\\Valve\\Steam\\SteamPath).\n", "error", MB_OK);
-
-	return buf;
-}
-
-
-int InitSteam()
-{
-	SetDllDirectory(obtain_steam_folder().c_str());
-
-
-	HMODULE steam = LoadLibrary("steam");
-	HMODULE steamapi = LoadLibrary("steam_api");
-	HMODULE steamclientdll = LoadLibrary("steamclient");
-
-	if (!steamclientdll)
-	{
-		printf("no steam client dll\n");
+	if (!parseip)
 		return 1;
-	}
 
-	CreateInterfaceFn fnApiInterface = (CreateInterfaceFn)GetProcAddress(steamclientdll, "CreateInterface");
-	if (!fnApiInterface)
-	{
-		return 1;
-	}
+	parseport = strtok(ipwithport, NULL);
 
-	if (!(steamclient = (ISteamClient017*)fnApiInterface(STEAMCLIENT_INTERFACE_VERSION_017, NULL)))
-		return 2;
-
-	if (!(clientengine = (IClientEngine*)fnApiInterface(CLIENTENGINE_INTERFACE_VERSION, NULL)))
-		return 3;
-
-	if (!(g_hSteamPipe = steamclient->CreateSteamPipe()))
-		return 4;
-
-	if (!(g_hSteamUser = steamclient->ConnectToGlobalUser(g_hSteamPipe)))
-		return 5;
-
-	if (!(steamuser = (ISteamUser017*)steamclient->GetISteamUser(g_hSteamUser, g_hSteamPipe, STEAMUSER_INTERFACE_VERSION_017)))
-		return 6;
+	strcpy(ip, parseip);
+	port = atoi(parseport);
 
 	return 0;
 }
@@ -1687,7 +1618,7 @@ int main(int argc, const char* argv[])
 
 	serverip = new char[50];
 
-	parseip(argv[1], serverip, serverport);//and this is the point where you call me a retard for not using strtok
+	parseip((char*)argv[1], serverip, serverport);
 
 	unsigned short clientport = atoi(argv[2]);
 
@@ -1707,7 +1638,13 @@ int main(int argc, const char* argv[])
 		strcpy(password, "leysourceengineclient");
 	}
 
-	InitSteam();
+	steam = new Steam;
+	int err = steam->Initiate();
+
+	if (err)
+	{
+		printf("Failed to initiate Steam: %d\n", err);
+	}
 
 
 	printf("Connecting to %s:%i | client port: %hu | Nick: %s | Pass: %s\n", serverip, serverport, clientport, nickname, password);
