@@ -27,7 +27,9 @@ The only supported platform right now is Windows. Feel free to contribute!
 
 # Credits
 - Leystryku (me)
-	* Creating this project
-    * Reverse engineering the code required to make it work
+  * Creating this project
+  * Reverse engineering the code required to make it work
 - Valve
-  * Creating the source engine and steamworks stuff
+  * Creating the source engine and steamworks library
+- StackOverflow users/1599699/andrew
+  * AsyncGetline class
