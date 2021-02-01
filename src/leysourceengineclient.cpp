@@ -14,6 +14,7 @@
 #include "steam.h"
 #include "commandline.h"
 #include "datagram.h"
+#include "oob.h"
 
 leychan netchan;
 leynet_udp net;
@@ -21,6 +22,7 @@ leynet_udp net;
 Steam* steam = 0;
 CommandLine* commandline = 0;
 Datagram* datagram = 0;
+OOB* oob = 0;
 
 std::string serverip = "";
 unsigned short serverport = 27015;
@@ -28,161 +30,10 @@ unsigned short clientport = 47015;
 std::string nickname = "leysourceengineclient";
 std::string password = "";
 
-char* logon = 0;
-
-char runcmd[255];
-
-long net_tick;
-unsigned int net_hostframetime;
-unsigned int net_hostframedeviation;
-
-unsigned long ourchallenge = 0x0B5B1842;
-
-unsigned long serverchallenge = 0;
-unsigned long authprotocol = 0;
-unsigned long steamkey_encryptionsize = 0;
-unsigned char steamkey_encryptionkey[STEAM_KEYSIZE];
-unsigned char serversteamid[STEAM_KEYSIZE];
-int vacsecured = 0;
 
 
-
-
-int HandleConnectionLessPacket(char* ip, short port, int connection_less, bf_read& recvdata)
-{
-	recvdata.ReadLong();
-
-	int header = 0;
-	int id = 0;
-	int total = 0;
-	int number = 0;
-	short splitsize = 0;
-
-	if (connection_less == 1)
-	{
-		header = recvdata.ReadByte();
-	}
-	else {
-		id = recvdata.ReadLong();
-		total = recvdata.ReadByte();
-		number = recvdata.ReadByte();
-		splitsize = recvdata.ReadByte();
-	}
-
-	switch (header)
-	{
-
-	case '9':
-	{
-		recvdata.ReadLong();
-
-		char error[1024];
-		recvdata.ReadString(error, 1024);
-		printf("Connection refused! [%s]\n", error);
-
-		datagram->Reconnect(&netchan);
-
-		return 1;
-	}
-	case 'A': // A2A_GETCHALLENGE
-	{
-		netchan.connectstep = 3;
-		long magicnumber = recvdata.ReadLong();
-
-		serverchallenge = recvdata.ReadLong();
-		ourchallenge = recvdata.ReadLong();
-		authprotocol = recvdata.ReadLong();
-
-		steamkey_encryptionsize = recvdata.ReadShort(); // gotta be 0
-
-		recvdata.ReadBytes(steamkey_encryptionkey, steamkey_encryptionsize);
-		recvdata.ReadBytes(serversteamid, sizeof(serversteamid));
-		vacsecured = recvdata.ReadByte();
-
-		printf("Challenge: %lu__%lu|Auth: %x|SKey: %lu|VAC: %x\n", serverchallenge, ourchallenge, authprotocol, steamkey_encryptionsize, vacsecured);
-
-		char connectpkg[700];
-		memset(connectpkg, 0, sizeof(connectpkg));
-
-		bf_write writeconnect(connectpkg, sizeof(connectpkg));
-		bf_read readsteamid(connectpkg, sizeof(connectpkg));
-
-		writeconnect.WriteLong(-1);
-		writeconnect.WriteByte('k');//C2S_CONNECT
-
-		writeconnect.WriteLong(0x18);//protocol ver
-
-		writeconnect.WriteLong(0x03);//auth protocol 0x03 = PROTOCOL_STEAM, 0x02 = PROTOCOL_HASHEDCDKEY, 0x01=PROTOCOL_AUTHCERTIFICATE
-		writeconnect.WriteLong(serverchallenge);
-		writeconnect.WriteLong(ourchallenge);
-
-		writeconnect.WriteUBitLong(2729496039, 32);
-
-		writeconnect.WriteString(nickname.c_str()); //nick
-		writeconnect.WriteString(password.c_str()); // pass
-		writeconnect.WriteString("2000"); // game version
-
-
-		unsigned char steamkey[STEAM_KEYSIZE];
-		unsigned int keysize = 0;
-
-		steam->GetSteamUser()->GetAuthSessionTicket(steamkey, STEAM_KEYSIZE, &keysize);
-
-		CSteamID localsid = steam->GetSteamUser()->GetSteamID();
-
-		writeconnect.WriteShort(242);
-		unsigned long long steamid64 = localsid.ConvertToUint64();
-		writeconnect.WriteLongLong(steamid64);
-
-		if (keysize)
-			writeconnect.WriteBytes(steamkey, keysize);
-
-		net.SendTo(ip, port, connectpkg, writeconnect.GetNumBytesWritten());
-
-
-		return 1;
-
-	}
-	case 'B': // S2C_CONNECTION
-	{
-		if (netchan.connectstep == 0 || netchan.connectstep > 4)
-			return 1;
-
-		netchan.connectstep = 4;
-		printf("Server is telling us we can connect\n");
-
-		bf_write* senddatabuf = netchan.GetSendData();
-
-		senddatabuf->WriteUBitLong(6, 6);
-		senddatabuf->WriteByte(2);
-		senddatabuf->WriteLong(-1);
-
-		senddatabuf->WriteUBitLong(4, 6);
-		senddatabuf->WriteString("VModEnable 1");
-		senddatabuf->WriteUBitLong(4, 6);
-		senddatabuf->WriteString("vban 0 0 0 0");
-
-		datagram->Send(&netchan);
-
-		printf("Sent connect packet\n");
-		Sleep(3000);
-
-
-		return 1;
-	}
-
-	case 'I':
-	{
-		return 1;
-	}
-	default:
-	{
-		printf("Unknown message received from: %s, header: %i ( %c )\n", ip, header, header);
-		return 0;
-	}
-	}
-}
 int last_packet_received = 0;
+unsigned long ourchallenge = 0x0B5B1842;
 
 int doreceivethink()
 {
@@ -206,7 +57,7 @@ int doreceivethink()
 	}
 
 	bf_read recvdata(netrecbuffer, msgsize);
-	int header = recvdata.ReadLong();
+	long header = recvdata.ReadLong();
 
 	int connection_less = 0;
 
@@ -215,34 +66,13 @@ int doreceivethink()
 
 	if (header == NET_HEADER_FLAG_SPLITPACKET)
 	{
-		printf("SPLIT\n");
-
-		if (!netchan.HandleSplitPacket(netrecbuffer, msgsize, recvdata))
+		if (!oob->HandleSplitPacket(&netchan, recvdata, netrecbuffer, msgsize, &header))
 			return 0;
-
-		header = recvdata.ReadLong();
 	}
 
 	if (header == NET_HEADER_FLAG_COMPRESSEDPACKET)
 	{
-		unsigned int uncompressedSize = msgsize * 16;
-
-		char* tmpbuffer = new char[uncompressedSize];
-
-
-		memmove(netrecbuffer, netrecbuffer + 4, msgsize + 4);
-
-		leychan::NET_BufferToBufferDecompress(tmpbuffer, uncompressedSize, netrecbuffer, msgsize);
-
-		memcpy(netrecbuffer, tmpbuffer, uncompressedSize);
-
-
-		recvdata.StartReading(netrecbuffer, uncompressedSize, 0);
-		printf("UNCOMPRESSED\n");
-
-
-		delete[] tmpbuffer;
-		tmpbuffer = 0;
+		oob->HandleCompressedPacket(&netchan, recvdata, netrecbuffer, msgsize);
 	}
 
 
@@ -251,7 +81,22 @@ int doreceivethink()
 
 	if (connection_less)
 	{
-		return HandleConnectionLessPacket(charip, port, connection_less, recvdata);
+		bool success = oob->ReceiveQueryPacket(
+			&netchan,
+			datagram,
+			steam,
+			recvdata,
+			nickname.c_str(),
+			password.c_str(),
+			connection_less,
+			&ourchallenge);
+
+		if (success)
+		{
+			return 1;
+		}
+
+		return 0;
 	}
 
 	if (netchan.connectstep == 4)
@@ -354,17 +199,7 @@ int dosendthink()
 	{
 		if (netchan.connectstep == 1)
 		{
-			char challengepkg[100];
-
-			bf_write writechallenge(challengepkg, sizeof(challengepkg));
-			writechallenge.WriteLong(-1);
-			writechallenge.WriteByte('q');
-			writechallenge.WriteLong(ourchallenge);
-			writechallenge.WriteString("0000000000");
-
-			net.SendTo(serverip.c_str(), serverport, challengepkg, writechallenge.GetNumBytesWritten());
-			netchan.connectstep++;
-			Sleep(500);
+			oob->SendRequestChallenge(&netchan, ourchallenge);
 			return 1;
 		}
 
@@ -463,24 +298,11 @@ int dosendthink()
 		bf_write* senddatabuf = netchan.GetSendData();
 
 		senddatabuf->WriteUBitLong(3, 6);
-		senddatabuf->WriteLong(net_tick);
-		senddatabuf->WriteUBitLong(net_hostframetime, 16);
-		senddatabuf->WriteUBitLong(net_hostframedeviation, 16);
+		senddatabuf->WriteLong(netchan.tickData.net_tick);
+		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframetime, 16);
+		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframedeviation, 16);
 
 		skipwalks = 50;
-	}
-
-
-	if (strlen(runcmd) > 0)
-	{
-		printf("Sending cmd: %s\n", runcmd);
-
-		bf_write* senddatabuf = netchan.GetSendData();
-
-		senddatabuf->WriteUBitLong(4, 6);
-		senddatabuf->WriteString(runcmd);
-
-		memset(runcmd, 0, sizeof(runcmd));
 	}
 
 	datagram->Send(&netchan);
@@ -533,12 +355,12 @@ bool getline_async(std::istream& is, std::string& str, char delim = '\n') {
 
 int main(int argc, const char* argv[])
 {
-	if(argc <= 1)
+	if (argc <= 1)
 	{
-		printf("Args: -serverip ip -serverport port -clientport clport -nickname name -password pass")
+		printf("Args: -serverip ip -serverport port -clientport clport -nickname name -password pass");
 		return 1;
 	}
-	
+
 	commandline = new CommandLine;
 	steam = new Steam;
 	commandline->InitParams(argv, argc);
@@ -575,6 +397,7 @@ int main(int argc, const char* argv[])
 
 
 	datagram = new Datagram(&net, serverip.c_str(), serverport);
+	oob = new OOB(&net, serverip.c_str(), serverport);
 
 	std::string sinput = "";
 
@@ -584,15 +407,11 @@ int main(int argc, const char* argv[])
 
 		donamethink();
 
-		if (dosendthink())
+		if (dosendthink() || doreceivethink())
 		{
 			continue;
 		}
 
-		if (doreceivethink())
-		{
-			continue;
-		}
 		/*
 		if (!getline_async(std::cin, sinput))
 			continue;

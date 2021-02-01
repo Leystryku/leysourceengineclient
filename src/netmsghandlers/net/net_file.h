@@ -8,7 +8,7 @@ class leychan;
 class net_file : public netmsg_common
 {
 public:
-	net_file() : netmsg_common("net_file", 1) { }
+	net_file() : netmsg_common("net_file", 2) { }
 
 	bool Register(leychan* chan);
 	static bool ParseMessage(leychan* chan, net_file* thisptr, bf_read& msg);

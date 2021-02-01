@@ -5,6 +5,7 @@
 A small Source Engine Client which deals with the basic communication neccessary to connect to a Source Engine Server which is based on a OB Game (e.g. Garry's Mod, TF2, etc.). If you do use this or use from code from this PLEASE give credit. Ever since this has been released several people have created their "own version" while not giving any credits to the original. Please don't be that guy. If I release code open source, you are free to use it as much as you like. You do not have to pay for it whatsoever. But please give credit when using my work or using code from my work.
 
 # Running
+- Create steam_appid.txt in the same directory and write the AppID 4000 inside
 - Just run leysourceengineclient.exe -serverip ip -serverport port -nickname nick
 
 #### Troubleshooting

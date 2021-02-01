@@ -26,6 +26,7 @@ leychan::leychan()
 {
 	this->netsendbuffer = new char[SENDDATA_SIZE];
 	this->senddata = new bf_write;
+	Reset();
 }
 
 unsigned short leychan::CRC16_ProcessSingleBuffer(unsigned char* data, unsigned int size)
