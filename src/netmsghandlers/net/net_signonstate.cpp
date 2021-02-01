@@ -17,6 +17,11 @@ bool net_signonstate::ParseMessage(leychan* chan, net_signonstate* thisptr, bf_r
 	int state = msg.ReadByte();
 	long servercount = msg.ReadLong();
 
+	if (state > 10)
+	{
+		printf("Invalid net_SignonState!\n");
+		return false;
+	}
 
 	printf("Received net_SignOnState: %i, count: %i\n", state, servercount);
 	chan->SetSignonState(state, servercount);

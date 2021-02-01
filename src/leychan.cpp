@@ -22,6 +22,12 @@
 #define _maxpacketdrop 0
 #define _log_packetheaders false
 
+leychan::leychan()
+{
+	this->netsendbuffer = new char[SENDDATA_SIZE];
+	this->senddata = new bf_write;
+}
+
 unsigned short leychan::CRC16_ProcessSingleBuffer(unsigned char* data, unsigned int size)
 {
 	int crc32 = CRC32_ProcessSingleBuffer(data, size);
@@ -94,6 +100,16 @@ unsigned short leychan::BufferToShortChecksum(void* pvData, size_t nLength)
 
 void leychan::Reset()
 {
+	if (this->senddata)
+	{
+		this->senddata->Reset();
+	}
+
+	memset(this->netsendbuffer, 0, SENDDATA_SIZE);
+
+	this->senddata->StartWriting(this->netsendbuffer, SENDDATA_SIZE, 0);
+
+	connectstep = 1;
 	m_iServerCount = -1;
 	m_iSignOnState = 2;
 	m_iForceNeedsFrags = 0;
@@ -469,8 +485,6 @@ bool leychan::ReadSubChannelData(bf_read& buf, int stream)
 	return true;
 }
 
-extern int ProcessMessages(bf_read& recvdata);
-
 
 inline bool fileexists(const std::string& name) {
 	if (FILE* file = fopen(name.c_str(), "r")) {
@@ -757,6 +771,8 @@ int leychan::HandleSplitPacket(char* netrecbuffer, int& msgsize, bf_read& recvda
 
 bool leychan::HandleMessage(bf_read& msg, int type)
 {
+	bool shouldretfalse = false;
+
 	for (auto pos = this->m_netCallbacks.begin(); pos != this->m_netCallbacks.end(); ++pos)
 	{
 		auto kv = *pos;
@@ -767,11 +783,17 @@ bool leychan::HandleMessage(bf_read& msg, int type)
 
 			netcallbackfn cb = fninfo->second;
 
-			return cb(this, fninfo->first, msg);
+			if (!cb(this, fninfo->first, msg))
+				shouldretfalse = true;
 		}
 	}
 
-	return false;
+	if (shouldretfalse)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 int leychan::ProcessMessages(bf_read& msgs)
@@ -824,8 +846,11 @@ bool leychan::RegisterMessageHandler(int msgtype, void* classptr, netcallbackfn 
 	return true;
 }
 
-void leychan::SetSignonState(int servercount, int state)
+void leychan::SetSignonState(int state, int servercount)
 {
+
+	printf("Should do SetSignonState  %i, %i\n", state, servercount);
+
 	if (this->m_iSignOnState == state)
 	{
 		printf("Ignored signonstate!\n");
@@ -835,70 +860,28 @@ void leychan::SetSignonState(int servercount, int state)
 	this->m_iServerCount = servercount;
 	this->m_iSignOnState = state;
 
-	printf("Should do SetSignonState __ %i\n", state);
-	/*
 	if (state == 3)
 	{
-		senddata.WriteUBitLong(8, 6);
-		senddata.WriteLong(netchan->m_iServerCount);
-		senddata.WriteLong(-1343288453);//clc_ClientInfo crc
-		senddata.WriteOneBit(1);//ishltv
-		senddata.WriteLong(1337);
-
-		static int shit = 20;
-		shit++;
-		printf("LOL: %i\n", shit);
-
-		senddata.WriteUBitLong(0, shit);
-
-		NET_SendDatagram(0);
-
-		senddata.WriteUBitLong(0, 6);
-
-		senddata.WriteUBitLong(6, 6);
-		senddata.WriteByte(state);
-		senddata.WriteLong(aservercount);
-		NET_SendDatagram(0);
-
-		return true;
+		printf("yo2\n");
+		this->connectstep++;
+		return;
 	}
 
-	if (bconnectstep)
-	{
-
-
-		if (state == 4 && false)
-		{
-			senddata.WriteUBitLong(12, 6);
-
-			for (int i = 0; i < 32; i++)
-			{
-				senddata.WriteUBitLong(1, 32);
-			}
-
-		}
-
-		senddata.WriteUBitLong(6, 6);
-		senddata.WriteByte(state);
-		senddata.WriteLong(aservercount);
-
-
-
-		NET_SendDatagram(false);
-
-		return true;
-	}
-
-	senddata.WriteUBitLong(6, 6);
-	senddata.WriteByte(state);
-	senddata.WriteLong(aservercount);
-	*/
+	this->GetSendData()->WriteUBitLong(6, 6);
+	this->GetSendData()->WriteByte(state);
+	this->GetSendData()->WriteLong(this->m_iServerCount);
 
 }
 
 void leychan::ProcessServerInfo(unsigned short protocolversion, int count)
 {
-	this->m_iServerCount = count;
+	if (this->connectstep)
+	{
+		this->m_iServerCount = count;
+		this->connectstep++;
+	}
+
+	printf("ProcessServerInfo\n");
 }
 
 void leychan::Reconnect()

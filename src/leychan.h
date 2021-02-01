@@ -9,11 +9,18 @@
 #include "leychandefs.h"
 #include "tickdata.h"
 
+#ifndef SENDDATA_SIZE
+#define SENDDATA_SIZE 1000
+#endif
+
 class bf_read;
+class bf_write;
 
 class leychan
 {
 public:
+	leychan();
+
 	typedef bool(__cdecl* netcallbackfn)(leychan* chan, void* thisptr, bf_read& msg);
 	typedef std::pair<void*, netcallbackfn> netcallback;
 
@@ -25,6 +32,7 @@ public:
 
 	tickData_s tickData;
 
+	int connectstep;
 	int m_PacketDrop;
 	int m_nInSequenceNr;
 	int m_nOutSequenceNrAck;
@@ -36,6 +44,14 @@ public:
 
 	unsigned int m_ChallengeNr;
 	bool m_bStreamContainsChallenge;
+
+	bf_write* senddata;
+	char* netsendbuffer;
+
+	bf_write* GetSendData()
+	{
+		return senddata;
+	};
 
 	int ProcessPacketHeader(int msgsize, bf_read& read);
 	bool ReadSubChannelData(bf_read& buf, int stream);

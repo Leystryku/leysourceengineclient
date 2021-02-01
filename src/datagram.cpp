@@ -10,42 +10,31 @@
 
 Datagram::Datagram()
 {
+	this->udp = 0;
+	this->datagram = new char[DATAGRAM_SIZE];
+	this->netdatagram = new bf_write;
 	Reset();
 }
 
-Datagram::Datagram(leynet_udp* udp, const char* ip, unsigned short port)
+Datagram::Datagram(leynet_udp* udp, const char* ip, unsigned short port) : Datagram()
 {
-	Datagram();
 	strcpy(this->ip, ip);
 	this->port = port;
 	this->udp = udp;
+
 }
 
 bool Datagram::Reset()
 {
-	memset(this->ip, 0, sizeof(this->ip));
-	this->port = 0;
 
-	this->netdatagram.Reset();
-	this->senddata.Reset();
-
-	if (this->datagram)
+	if (this->netdatagram)
 	{
-		delete[] this->datagram;
-		this->datagram = 0;
+		this->netdatagram->Reset();
 	}
 
-	if (this->netsendbuffer)
-	{
-		delete[] this->netsendbuffer;
-		this->netsendbuffer = 0;
-	}
+	memset(this->datagram, 0, DATAGRAM_SIZE);
 
-	this->datagram = new char[DATAGRAM_SIZE];
-	this->netsendbuffer = new char[SENDDATA_SIZE];
-
-	this->netdatagram.StartWriting(this->datagram, sizeof(this->datagram));
-	this->senddata.StartWriting(this->netsendbuffer, sizeof(this->netsendbuffer));
+	this->netdatagram->StartWriting(this->datagram, DATAGRAM_SIZE, 0);
 
 	return true;
 }
@@ -54,8 +43,8 @@ bool Datagram::Disconnect(leychan* chan)
 {
 	Reset();
 
-	senddata.WriteUBitLong(1, 6);
-	senddata.WriteString("Disconnect by User.");
+	chan->GetSendData()->WriteUBitLong(1, 6);
+	chan->GetSendData()->WriteString("Disconnect by User.");
 
 	Send(chan);
 
@@ -75,25 +64,26 @@ bool Datagram::Reconnect(leychan* chan)
 
 bool Datagram::Send(leychan* chan, bool subchans)
 {
-	if (this->senddata.GetNumBytesWritten() == 0)
+	if (chan->GetSendData()->GetNumBytesWritten() == 0)
 	{
 		return false;
 	}
+
 	unsigned char flags = 0;
 
-	netdatagram.WriteLong(chan->m_nOutSequenceNr); // outgoing sequence
-	netdatagram.WriteLong(chan->m_nInSequenceNr); // incoming sequence
+	netdatagram->WriteLong(chan->m_nOutSequenceNr); // outgoing sequence
+	netdatagram->WriteLong(chan->m_nInSequenceNr); // incoming sequence
 
-	bf_write flagpos = netdatagram;
+	bf_write flagpos = *netdatagram;
 
-	netdatagram.WriteByte(0); // flags
-	netdatagram.WriteWord(0); // crc16
+	netdatagram->WriteByte(0); // flags
+	netdatagram->WriteWord(0); // crc16
 
-	int nCheckSumStart = netdatagram.GetNumBytesWritten();
+	int nCheckSumStart = netdatagram->GetNumBytesWritten();
 
 
 
-	netdatagram.WriteByte(chan->m_nInReliableState);
+	netdatagram->WriteByte(chan->m_nInReliableState);
 
 
 	if (subchans)
@@ -103,14 +93,14 @@ bool Datagram::Send(leychan* chan, bool subchans)
 
 
 
-	netdatagram.WriteBits(senddata.GetData(), senddata.GetNumBitsWritten()); // Data
+	netdatagram->WriteBits(chan->GetSendData()->GetData(), chan->GetSendData()->GetNumBitsWritten()); // Data
 
 	int nMinRoutablePayload = MIN_ROUTABLE_PAYLOAD;
 
 
-	while ((netdatagram.GetNumBytesWritten() < MIN_ROUTABLE_PAYLOAD && netdatagram.GetNumBitsWritten() % 8 != 0))
+	while ((netdatagram->GetNumBytesWritten() < MIN_ROUTABLE_PAYLOAD && netdatagram->GetNumBitsWritten() % 8 != 0))
 	{
-		netdatagram.WriteUBitLong(0, NETMSG_TYPE_BITS);
+		netdatagram->WriteUBitLong(0, NETMSG_TYPE_BITS);
 	}
 
 	flagpos.WriteByte(flags);
@@ -121,7 +111,7 @@ bool Datagram::Send(leychan* chan, bool subchans)
 	{
 
 
-		int nCheckSumBytes = netdatagram.GetNumBytesWritten() - nCheckSumStart;
+		int nCheckSumBytes = netdatagram->GetNumBytesWritten() - nCheckSumStart;
 		if (nCheckSumBytes > 0)
 		{
 
@@ -130,11 +120,12 @@ bool Datagram::Send(leychan* chan, bool subchans)
 
 			chan->m_nOutSequenceNr++;
 
-			this->udp->SendTo(this->ip, this->port, datagram, netdatagram.GetNumBytesWritten());
+			this->udp->SendTo(this->ip, this->port, datagram, netdatagram->GetNumBytesWritten());
 		}
 	}
 
 	this->Reset();
+	chan->GetSendData()->Reset();
 
 	return true;
 }
@@ -144,8 +135,8 @@ bool Datagram::RequestFragments(leychan* chan)
 	Reset();
 
 
-	senddata.WriteOneBit(0);
-	senddata.WriteOneBit(0);
+	chan->GetSendData()->WriteOneBit(0);
+	chan->GetSendData()->WriteOneBit(0);
 
 	Send(chan, true);
 
@@ -157,20 +148,20 @@ void Datagram::GenerateLeyFile(leychan* chan, const char* filename, const char* 
 	printf("OUTGOING: %i\n", chan->m_nOutSequenceNr);
 
 
-	int nCheckSumStart = this->senddata.GetNumBytesWritten();
+	int nCheckSumStart = chan->GetSendData()->GetNumBytesWritten();
 
-	this->senddata.WriteUBitLong(chan->m_nInReliableState, 3);//m_nInReliableState
-	this->senddata.WriteOneBit(1);//subchannel
-	this->senddata.WriteOneBit(1); // data follows( if 0 = singleblock )
-	this->senddata.WriteUBitLong(0, MAX_FILE_SIZE_BITS - FRAGMENT_BITS);// startFragment
-	this->senddata.WriteUBitLong(BYTES2FRAGMENTS(strlen(content)), 3);//number of fragments
-	this->senddata.WriteOneBit(1);//is it a file?
+	chan->GetSendData()->WriteUBitLong(chan->m_nInReliableState, 3);//m_nInReliableState
+	chan->GetSendData()->WriteOneBit(1);//subchannel
+	chan->GetSendData()->WriteOneBit(1); // data follows( if 0 = singleblock )
+	chan->GetSendData()->WriteUBitLong(0, MAX_FILE_SIZE_BITS - FRAGMENT_BITS);// startFragment
+	chan->GetSendData()->WriteUBitLong(BYTES2FRAGMENTS(strlen(content)), 3);//number of fragments
+	chan->GetSendData()->WriteOneBit(1);//is it a file?
 
-	this->senddata.WriteUBitLong(0xFF, 32);//transferid
+	chan->GetSendData()->WriteUBitLong(0xFF, 32);//transferid
 
-	this->senddata.WriteString(filename);//filename
-	this->senddata.WriteOneBit(0);//compressed?
-	this->senddata.WriteUBitLong(strlen(content), MAX_FILE_SIZE_BITS);//number of bytes of the file
-	this->senddata.WriteString(content);
+	chan->GetSendData()->WriteString(filename);//filename
+	chan->GetSendData()->WriteOneBit(0);//compressed?
+	chan->GetSendData()->WriteUBitLong(strlen(content), MAX_FILE_SIZE_BITS);//number of bytes of the file
+	chan->GetSendData()->WriteString(content);
 
 }

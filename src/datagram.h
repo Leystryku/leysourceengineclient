@@ -1,12 +1,9 @@
 #pragma once
 
 #ifndef DATAGRAM_SIZE
-#define DATAGRAM_SIZE 65535 * 2
+#define DATAGRAM_SIZE 3000
 #endif
 
-#ifndef SENDDATA_SIZE
-#define SENDDATA_SIZE DATAGRAM_SIZE / 2
-#endif
 
 class leychan;
 class leynet_udp;
@@ -25,19 +22,15 @@ public:
 	bool RequestFragments(leychan* chan);
 	void GenerateLeyFile(leychan* chan, const char* filename, const char* content);
 
-	bf_write& GetSendData()
-	{
-		return senddata;
-	}
+
 
 private:
-	leynet_udp* udp = 0;
+	leynet_udp* udp;
 
-	char* netsendbuffer = 0;
-	char* datagram = 0;
 
-	bf_write senddata;
-	bf_write netdatagram;
+	char* datagram;
+
+	bf_write* netdatagram;
 
 	char ip[30];
 	unsigned short port;
