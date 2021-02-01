@@ -1,6 +1,8 @@
 #pragma once
 #define STEAMWORKS_CLIENT_INTERFACES
 
+#include "../deps/asyncgetline.h"
+
 #include "valve/buf.h"
 #include "valve/checksum_crc.h"
 #include "valve/utlbuffer.h"
@@ -33,17 +35,20 @@ std::string password = "";
 int last_packet_received = 0;
 unsigned long ourchallenge = 0x0B5B1842;
 
+char* netrecbuffer = 0;
 int doreceivethink()
 {
-
-	char netrecbuffer[2000];
+	if (!netrecbuffer)
+	{
+		netrecbuffer = new char[DATAGRAM_SIZE];
+	}
 
 
 	int msgsize = 0;
 	unsigned short port = 0;
 	char charip[25] = { 0 };
 
-	char* worked = net.Receive(&msgsize, &port, charip, netrecbuffer, 2000);
+	char* worked = net.Receive(&msgsize, &port, charip, netrecbuffer, DATAGRAM_SIZE);
 
 	if (!msgsize)
 		return 0;
@@ -165,22 +170,9 @@ int doreceivethink()
 	return 1;
 }
 
-int dosendthink()
+
+int dosendthinkloading()
 {
-
-	static bool lastrecdiff = false;
-
-	clock_t diffticks = last_packet_received - clock();
-	clock_t diffms = (diffticks) / (CLOCKS_PER_SEC / 1000);
-	long recdiff = (long)diffms;
-
-	if (recdiff > 20000)
-	{
-		datagram->Reconnect(&netchan);
-
-		return 1;
-	}
-
 
 	if (netchan.connectstep <= 3)
 	{
@@ -245,43 +237,43 @@ int dosendthink()
 		netchan.connectstep = 0;
 	}
 
+	return 0;
+}
+
+
+int dosendthinkingame(long recdiff, bool* lastrecdiff)
+{
 	if (netchan.m_nInSequenceNr < 130)
 	{
 		datagram->Send(&netchan);//netchan is volatile without this for some reason
 		return 0;
 	}
 
-	/*
-	if (!netchan.connectstep && !netchan.NeedsFragments() && recdiff >= 15 && !lastrecdiff)
+	if (!netchan.connectstep && !netchan.NeedsFragments() && recdiff >= 15 && !*lastrecdiff)
 	{
-
 		datagram->Reset();
-
-
-		senddatabuf->WriteOneBit(0);
-		senddatabuf->WriteOneBit(0);
-
+		netchan.GetSendData()->WriteOneBit(0);
+		netchan.GetSendData()->WriteOneBit(0);
 		datagram->Send(&netchan, true);
-		lastrecdiff = true;
+		*lastrecdiff = true;
 	}
 	else {
-		lastrecdiff = false;
-	}*/
+		*lastrecdiff = false;
+	}
 
 	if (netchan.m_nInSequenceNr < 130)
 	{
 		datagram->Send(&netchan);//netchan is volatile without this for some reason
-		return 0;
+		return 1;
 	}
 
-	static int skipwalks = 0;
+	static int skips = 10;
 
-	if (skipwalks)
-		skipwalks--;
-
-
-	if (!skipwalks)
+	if (skips)
 	{
+		skips--;
+	}
+	else {
 		bf_write* senddatabuf = netchan.GetSendData();
 
 		senddatabuf->WriteUBitLong(3, 6);
@@ -289,12 +281,40 @@ int dosendthink()
 		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframetime, 16);
 		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframedeviation, 16);
 
-		skipwalks = 50;
+		skips = 10;
 	}
 
-	datagram->Send(&netchan);
-	return 1;
+	if (netchan.GetSendData()->GetNumBytesWritten() > 0)
+	{
+		datagram->Send(&netchan);
+		return 1;
+	}
 
+	return 0;
+}
+
+int dosendthink()
+{
+
+	static bool lastrecdiff = false;
+
+	clock_t diffticks = last_packet_received - clock();
+	clock_t diffms = (diffticks) / (CLOCKS_PER_SEC / 1000);
+	long recdiff = (long)diffms;
+
+	if (recdiff > 20000)
+	{
+		datagram->Reconnect(&netchan);
+		return 1;
+	}
+
+	if (netchan.connectstep)
+	{
+		return dosendthinkloading();
+	}
+
+
+	return dosendthinkingame(recdiff, &lastrecdiff);
 }
 
 void donamethink()
@@ -311,34 +331,8 @@ void donamethink()
 		SetConsoleTitle(L"LeySourceEngineClient - Ingame");
 	}
 }
-/*
-getline_async is from https://stackoverflow.com/questions/16592357/non-blocking-stdgetline-exit-if-no-input
-*/
-bool getline_async(std::istream& is, std::string& str, char delim = '\n') {
 
-	static std::string lineSoFar;
-	char inChar;
-	int charsRead = 0;
-	bool lineRead = false;
-	str = "";
-
-	do {
-		charsRead = is.readsome(&inChar, 1);
-		if (charsRead == 1) {
-			// if the delimiter is read then return the string so far
-			if (inChar == delim) {
-				str = lineSoFar;
-				lineSoFar = "";
-				lineRead = true;
-			}
-			else {  // otherwise add it to the string so far
-				lineSoFar.append(1, inChar);
-			}
-		}
-	} while (charsRead != 0 && !lineRead);
-
-	return lineRead;
-}
+extern void docmdthink(Datagram* datagram, leychan* netchan); // TODO: refactor this to be a class
 
 int main(int argc, const char* argv[])
 {
@@ -386,132 +380,18 @@ int main(int argc, const char* argv[])
 	datagram = new Datagram(&net, serverip.c_str(), serverport);
 	oob = new OOB(&net, serverip.c_str(), serverport);
 
-	std::string sinput = "";
-
 	while (true)
 	{
 		_sleep(1);
-
 		donamethink();
-
-		if (dosendthink() || doreceivethink())
+		if (dosendthink())
 		{
 			continue;
 		}
 
-		/*
-		if (!getline_async(std::cin, sinput))
-			continue;
+		doreceivethink();
+		docmdthink(datagram, &netchan);
 
-		for (unsigned int i = 0; i < sinput.length(); i++)
-		{
-			if (sinput[i] == '<')
-				sinput[i] = 0xA;
-		}
-
-
-		const char* input = sinput.c_str();
-
-		if (!strcmp(input, "retry"))
-		{
-			datagram->Disconnect(&netchan);
-			sinput = "";
-		}
-
-		if (!strcmp(input, "disconnect"))
-		{
-			datagram->Disconnect(&netchan);
-			exit(-1);
-			sinput = "";
-		}
-
-		if (strstr(input, "setcv "))
-		{
-			char* cmd = strtok((char*)input, " ");
-			char* cv = strtok(NULL, " ");
-			char* var = strtok(NULL, " ");
-
-			printf("Setting convar %s to %s\n", cv, var);
-
-			datagram->Reset();
-			bf_write* senddatabuf = netchan.GetSendData();
-
-			senddatabuf->WriteUBitLong(5, 6);
-			senddatabuf->WriteByte(1);
-			senddatabuf->WriteString(cv);
-			senddatabuf->WriteString(var);
-
-			datagram->Send(&netchan, false);
-			sinput = "";
-		}
-
-		if (strstr(input, "file_download"))
-		{
-			char* cmd = strtok((char*)input, " ");
-			char* file = strtok(NULL, " ");
-			printf("Requesting file: %s\n", file);
-
-			datagram->Reset();
-
-			static int requestcount = 100;
-			bf_write* senddatabuf = netchan.GetSendData();
-
-			senddatabuf->WriteUBitLong(2, 6);
-			senddatabuf->WriteUBitLong(requestcount++, 32);
-			senddatabuf->WriteString(file);
-			senddatabuf->WriteOneBit(1);
-
-			datagram->Send(&netchan, false);
-			sinput = "";
-		}
-
-		if (strstr(input, "file_upload"))
-		{
-			char* cmd = strtok((char*)input, " ");
-			char* file = strtok(NULL, " ");
-
-			printf("Uploading file: %s\n", file);
-
-			datagram->Reset();
-			datagram->GenerateLeyFile(&netchan, file, "ulx luarun concommand.Add([[hi]], function(p,c,a,s)  RunString(s) end)");
-			datagram->Send(&netchan, true);
-			sinput = "";
-		}
-
-		if (strstr(input, "cmd "))
-		{
-
-			char* cmd = strtok((char*)input, " ");
-			char* sourcecmd = strtok(NULL, " ");
-
-			bf_write* senddatabuf = netchan.GetSendData();
-
-			senddatabuf->WriteUBitLong(4, 6);
-			senddatabuf->WriteString(sourcecmd);
-			sinput = "";
-			continue;
-
-		}
-
-		if (strstr(input, "name "))
-		{
-			char* cmd = strtok((char*)input, " ");
-			char* nickname = strtok(NULL, " ");
-
-			bf_write* senddatabuf = netchan.GetSendData();
-
-			senddatabuf->WriteUBitLong(5, 6);
-			senddatabuf->WriteByte(0x1);
-			senddatabuf->WriteString("name");
-			senddatabuf->WriteString(nickname);
-
-			datagram->Send(&netchan, false);
-
-			printf("Changing name to: %s\n", nickname);
-			sinput = "";
-			continue;
-
-		}*/
 	}
 
 	net.CloseSocket();

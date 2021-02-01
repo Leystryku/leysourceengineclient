@@ -10,7 +10,7 @@
 #include "tickdata.h"
 
 #ifndef SENDDATA_SIZE
-#define SENDDATA_SIZE 1000
+#define SENDDATA_SIZE 30000
 #endif
 
 class bf_read;

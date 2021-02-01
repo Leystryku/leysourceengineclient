@@ -1,7 +1,7 @@
 #pragma once
 
 #ifndef DATAGRAM_SIZE
-#define DATAGRAM_SIZE 3000
+#define DATAGRAM_SIZE 30000
 #endif
 
 
