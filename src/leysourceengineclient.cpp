@@ -1,8 +1,6 @@
 #pragma once
 #define STEAMWORKS_CLIENT_INTERFACES
 
-#include <fcntl.h>
-
 #include "valve/buf.h"
 #include "valve/checksum_crc.h"
 #include "valve/utlbuffer.h"
