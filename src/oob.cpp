@@ -219,34 +219,41 @@ bool OOB::ReceiveQueryPacket(leychan* chan, Datagram* datagram, Steam* steam, bf
 
 bool OOB::HandleSplitPacket(leychan* chan, bf_read& recvdata, char* netrecbuffer, int msgsize, long* header)
 {
-	printf("SPLIT\n");
+	// printf("OOB::HandleSplitPacket\n");
 
-	if (!chan->HandleSplitPacket(netrecbuffer, msgsize, recvdata))
-		return false;
+	if (chan->HandleSplitPacket(netrecbuffer, msgsize, recvdata))
+	{
+		*header = recvdata.ReadLong();
+		return true;
+	}
 
-	*header = recvdata.ReadLong();
-	return true;
+	return false;
 }
 
 bool OOB::HandleCompressedPacket(leychan* chan, bf_read& recvdata, char* netrecbuffer, int msgsize)
 {
-	unsigned int uncompressedSize = msgsize * 16;
+	// printf("OOB:HandleCompressedPacket\n");
+	if (5 > msgsize)
+	{
+		return false;
+	}
 
-	char* tmpbuffer = new char[uncompressedSize];
+	char* lzssStart = (char*)netrecbuffer + 4;
+	unsigned int uncompressedSize = leychan::NET_GetDecompressedBufferSize(lzssStart) * 2;
 
-	memmove(netrecbuffer, netrecbuffer + 4, msgsize + 4);
+	if (uncompressedSize == 0)
+	{
+		return false;
+	}
 
-	leychan::NET_BufferToBufferDecompress(tmpbuffer, uncompressedSize, netrecbuffer, msgsize);
+	char* uncompressedBuffer = new char[uncompressedSize * 2 + 1024];
 
-	memcpy(netrecbuffer, tmpbuffer, uncompressedSize);
+	leychan::NET_BufferToBufferDecompress(uncompressedBuffer, uncompressedSize, lzssStart, msgsize);
 
+	memcpy(netrecbuffer, uncompressedBuffer, uncompressedSize);
+	delete[] uncompressedBuffer;
 
 	recvdata.StartReading(netrecbuffer, uncompressedSize, 0);
-	printf("UNCOMPRESSED\n");
-
-
-	delete[] tmpbuffer;
-	tmpbuffer = 0;
 
 	return true;
 }

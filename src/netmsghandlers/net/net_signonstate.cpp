@@ -15,6 +15,10 @@ bool net_signonstate::Register(leychan* chan)
 bool net_signonstate::ParseMessage(leychan* chan, net_signonstate* thisptr, bf_read& msg)
 {
 	int state = msg.ReadByte();
+	if (msg.IsOverflowed())
+	{
+		return false;
+	}
 	long servercount = msg.ReadLong();
 
 	if (state > 10)

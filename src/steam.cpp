@@ -9,22 +9,24 @@
 
 std::wstring Steam::GetSteamInstallFolder()
 {
-	wchar_t installfolder[MAX_PATH];
-	unsigned long bufferlength = sizeof(installfolder);
+	wchar_t installFolder[MAX_PATH] = { 0 };
+	unsigned long bufferLength = sizeof(installFolder);
 	unsigned long type = REG_SZ;
 
-	if (SHGetValue(HKEY_CURRENT_USER, TEXT("Software\\Valve\\Steam"), TEXT("SteamPath"), &type, installfolder, &bufferlength) != ERROR_SUCCESS)
+	if (SHGetValue(HKEY_CURRENT_USER, TEXT("Software\\Valve\\Steam"), TEXT("SteamPath"), &type, installFolder, &bufferLength) != ERROR_SUCCESS)
 	{
 		MessageBox(0, L"Could not find Steam Install directory in:\n HKEY_CURRENT_USER\\Software\\Valve\\Steam\\SteamPath)\n", L"leysourceengineclient - GetSteamInstallFolder", MB_OK);
 	}
 
-	return installfolder;
+	return installFolder;
 }
 
 ISteamUser017* Steam::GetSteamUser()
 {
 	return this->steamUser;
 }
+
+ISteamUser017* temporaryHack = 0;
 
 int Steam::Initiate()
 {
@@ -70,6 +72,8 @@ int Steam::Initiate()
 	{
 		return 7;
 	}
+
+	temporaryHack = this->steamUser;
 
 	return 0;
 }

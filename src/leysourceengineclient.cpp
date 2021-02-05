@@ -96,6 +96,10 @@ int doreceivethink()
 
 		if (success)
 		{
+			if (netchan.connectstep)
+			{
+				last_packet_received = clock();
+			}
 			return 1;
 		}
 
@@ -108,6 +112,8 @@ int doreceivethink()
 		printf("Received first ingame packet\n");
 	}
 
+	last_packet_received = clock();
+
 	int flags = netchan.ProcessPacketHeader(msgsize, recvdata);
 
 	if (flags == -1)
@@ -117,9 +123,6 @@ int doreceivethink()
 
 		return 1;
 	}
-
-
-	last_packet_received = clock();
 
 	if (flags & PACKET_FLAG_RELIABLE)
 	{
@@ -194,7 +197,7 @@ int dosendthinkloading()
 			datagram->Send(&netchan, true);
 			Sleep(1000);
 			datagram->Send(&netchan);
-			netchan.connectstep++;
+			netchan.connectstep = 7;
 			return 1;
 		}
 
@@ -214,7 +217,7 @@ int dosendthinkloading()
 
 		datagram->Send(&netchan);
 		Sleep(300);
-		netchan.connectstep++;
+		netchan.connectstep = 9;
 		for (int i = 3; i <= 6; i++)
 		{
 			printf("Sending SignonState %i\n", i);
@@ -222,9 +225,11 @@ int dosendthinkloading()
 			netchan.GetSendData()->WriteByte(i);
 			netchan.GetSendData()->WriteLong(netchan.m_iServerCount);
 			datagram->Send(&netchan);
+			netchan.connectstep = 10;
 			Sleep(300);
-			netchan.connectstep++;
 		}
+		netchan.m_iSignOnState = 6;
+		netchan.connectstep = 11;
 
 		doreceivethink();
 		datagram->Send(&netchan);//netchan is volatile without this for some reason
@@ -232,7 +237,7 @@ int dosendthinkloading()
 		return 1;
 	}
 
-	if (netchan.connectstep <= 13)
+	if (netchan.connectstep == 11)
 	{
 		netchan.connectstep = 0;
 	}
@@ -267,7 +272,18 @@ int dosendthinkingame(long recdiff, bool* lastrecdiff)
 		return 1;
 	}
 
-	static int skips = 10;
+	static int subchans = 80;
+	subchans--;
+	if (subchans == 0)
+	{
+		bf_write* senddatabuf = netchan.GetSendData();
+		senddatabuf->WriteUBitLong(0, 6);
+		datagram->Send(&netchan, true);
+		subchans = 80;
+		return 1;
+	}
+
+	static int skips = 20;
 
 	if (skips)
 	{
@@ -275,13 +291,12 @@ int dosendthinkingame(long recdiff, bool* lastrecdiff)
 	}
 	else {
 		bf_write* senddatabuf = netchan.GetSendData();
-
+		netchan.tickData.net_tick += 10;
 		senddatabuf->WriteUBitLong(3, 6);
 		senddatabuf->WriteLong(netchan.tickData.net_tick);
 		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframetime, 16);
 		senddatabuf->WriteUBitLong(netchan.tickData.net_hostframedeviation, 16);
-
-		skips = 10;
+		skips = 20;
 	}
 
 	if (netchan.GetSendData()->GetNumBytesWritten() > 0)

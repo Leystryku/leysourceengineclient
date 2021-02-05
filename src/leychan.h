@@ -3,14 +3,20 @@
 //credits to leystryku for assembling the required pieces for a com & updating those to work with modern ob games
 
 #include <vector>
+#include <memory>
 
 #include "valve/datafragments.h"
 #include "valve/subchannel.h"
 #include "leychandefs.h"
 #include "tickdata.h"
+#include "splitpacket.h"
 
 #ifndef SENDDATA_SIZE
 #define SENDDATA_SIZE 30000
+#endif
+
+#ifndef MAX_SPLITPACKETS
+#define MAX_SPLITPACKETS 30
 #endif
 
 class bf_read;
@@ -29,7 +35,7 @@ public:
 	dataFragments_t					m_ReceiveList[MAX_STREAMS];
 	subChannel_s					m_SubChannels[MAX_SUBCHANNELS];
 	std::vector<dataFragments_t*>	m_WaitingList[MAX_STREAMS];	// waiting list for reliable data and file transfer
-
+	std::vector<SplitPacket> m_Splits;
 	tickData_s tickData;
 
 	int connectstep;
@@ -61,7 +67,7 @@ public:
 	void UncompressFragments(dataFragments_t* data);
 	void RemoveHeadInWaitingList(int nList);
 	bool NeedsFragments();
-	bool HandleMessage(bf_read& msg, int type);
+	int HandleMessage(bf_read& msg, int type);
 	int ProcessMessages(bf_read& msgs);
 	bool RegisterMessageHandler(int msgtype, void* classptr, netcallbackfn handler);
 	void SetSignonState(int state, int servercount);
@@ -70,6 +76,7 @@ public:
 
 	int m_iForceNeedsFrags;
 
+	SplitPacket GetOrCreateSplit(int sequenceNumber, int totalPartsCount);
 	int HandleSplitPacket(char* netrecbuffer, int& msgsize, bf_read& recvdata);
 
 	void Reset();
@@ -77,6 +84,7 @@ public:
 
 	static unsigned short BufferToShortChecksum(void* pvData, size_t nLength);
 	static unsigned short CRC16_ProcessSingleBuffer(unsigned char* data, unsigned int size);
+	static unsigned int NET_GetDecompressedBufferSize(char* compressedbuf);
 	static bool NET_BufferToBufferDecompress(char* dest, unsigned int& destLen, char* source, unsigned int sourceLen);
 	static bool NET_BufferToBufferCompress(char* dest, unsigned int* destLen, char* source, unsigned int sourceLen);
 

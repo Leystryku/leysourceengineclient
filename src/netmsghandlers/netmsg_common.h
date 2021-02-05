@@ -8,10 +8,11 @@ private:
 	netmsg_common();
 
 public:
-	netmsg_common(std::string name, int msgtype)
+	netmsg_common(std::string name, int msgtype, int mininumremainingsize)
 	{
 		this->name = name;
 		this->msgtype = msgtype;
+		this->mininumremainingsize = mininumremainingsize;
 	}
 
 	std::string GetName()
@@ -24,7 +25,22 @@ public:
 		return msgtype;
 	}
 
+	int GetMinimumRemainingSize()
+	{
+		return mininumremainingsize;
+	}
+
+	inline bool LengthTooSmall(int length)
+	{
+		if (GetMinimumRemainingSize() > length)
+		{
+			return true;
+		}
+
+		return false;
+	}
 private:
-	int msgtype;
 	std::string name;
+	int msgtype;
+	int mininumremainingsize;
 };

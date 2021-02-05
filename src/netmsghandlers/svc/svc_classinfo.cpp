@@ -33,6 +33,9 @@ bool svc_classinfo::ParseMessage(leychan* chan, svc_classinfo* thisptr, bf_read&
 			msg.ReadString(classname, sizeof(classname));
 			msg.ReadString(dtname, sizeof(dtname));
 
+			if (msg.IsOverflowed())
+				return false;
+
 			printf("Classname: %s | DTname: %s | ClassID: %i\n", classname, dtname, classid);
 		}
 		printf("svc_ClassInfo end\n");

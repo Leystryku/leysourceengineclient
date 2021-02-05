@@ -15,7 +15,7 @@ bool svc_packetentities::Register(leychan* chan)
 
 bool svc_packetentities::ParseMessage(leychan* chan, svc_packetentities* thisptr, bf_read& msg)
 {
-	// TODO: Perhaps properly parse svc_PacketEntities too
+	// TODO: This message structure is most likely wrong, fix it
 	int max = msg.ReadUBitLong(MAX_EDICT_BITS);
 
 	int isdelta = msg.ReadOneBit();
@@ -29,7 +29,7 @@ bool svc_packetentities::ParseMessage(leychan* chan, svc_packetentities* thisptr
 
 	int baseline = msg.ReadUBitLong(1);
 	int changed = msg.ReadUBitLong(MAX_EDICT_BITS);
-	int bits = msg.ReadUBitLong(20);
+	int bits = msg.ReadUBitLong(DELTASIZE_BITS);
 
 	int updatebaseline = msg.ReadOneBit();
 
@@ -38,12 +38,12 @@ bool svc_packetentities::ParseMessage(leychan* chan, svc_packetentities* thisptr
 	if (bits < 1)
 		return true;
 
-	char* data = new char[bits];
+	char* data = new char[bytes + 10];
 	msg.ReadBits(data, bits);
 
 	delete[] data;
 
-	//printf("Received svc_PacketEntities, max: %i | isdelta: %i | line: %i | changed: %i | bits: %i | update: %i\n", max, isdelta, baseline, changed, bits, updatebaseline);
+	printf("Received svc_PacketEntities | isdelta: %i | line: %i | changed: %i | bits: %i | update: %i\n", isdelta, baseline, changed, bits, updatebaseline);
 
 
 	return true;

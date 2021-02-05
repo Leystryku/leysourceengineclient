@@ -55,6 +55,7 @@ bool svc_usermessage::ParseMessage(leychan* chan, svc_usermessage* thisptr, bf_r
 
 		printf("umsg print: %s\n", readstr);
 	}
+
 	if (msgtype == 44)//nwvar
 	{
 		int a = userMsg.ReadUBitLong(32);

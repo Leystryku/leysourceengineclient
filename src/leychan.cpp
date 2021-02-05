@@ -6,6 +6,7 @@
 #include <string>
 #include <direct.h>
 #include <vector>
+#include <ctime>
 
 #include "valve/buf.h"
 #include "valve/checksum_crc.h"
@@ -26,6 +27,7 @@ leychan::leychan()
 {
 	this->netsendbuffer = new char[SENDDATA_SIZE];
 	this->senddata = new bf_write;
+	this->m_Splits.clear();
 	Reset();
 }
 
@@ -36,9 +38,25 @@ unsigned short leychan::CRC16_ProcessSingleBuffer(unsigned char* data, unsigned 
 	return (unsigned short)(crc32 ^ (crc32 >> 16));
 }
 
+unsigned int leychan::NET_GetDecompressedBufferSize(char* compressedbuf)
+{
+	CLZSS s;
+
+	if (compressedbuf == nullptr)
+	{
+		return 0;
+	}
+
+	if (!s.IsCompressed((unsigned char*)compressedbuf))
+	{
+		return 0;
+	}
+
+	return s.GetActualSize((unsigned char*)compressedbuf);
+}
+
 bool leychan::NET_BufferToBufferDecompress(char* dest, unsigned int& destLen, char* source, unsigned int sourceLen)
 {
-
 	CLZSS s;
 	if (s.IsCompressed((unsigned char*)source))
 	{
@@ -64,7 +82,6 @@ bool leychan::NET_BufferToBufferDecompress(char* dest, unsigned int& destLen, ch
 
 bool leychan::NET_BufferToBufferCompress(char* dest, unsigned int* destLen, char* source, unsigned int sourceLen)
 {
-
 	memcpy(dest, source, sourceLen);
 	CLZSS s;
 	unsigned int uCompressedLen = 0;
@@ -101,6 +118,11 @@ unsigned short leychan::BufferToShortChecksum(void* pvData, size_t nLength)
 
 void leychan::Reset()
 {
+	for (auto split : this->m_Splits)
+	{
+		split.Reset();
+	}
+
 	if (this->senddata)
 	{
 		this->senddata->Reset();
@@ -135,9 +157,6 @@ void leychan::Reset()
 	memset(m_ReceiveList, 0, sizeof(m_ReceiveList));
 	memset(m_SubChannels, 0, sizeof(m_SubChannels));
 	memset(m_WaitingList, 0, sizeof(m_WaitingList));
-
-	// TODO: free memory of old handlers
-	m_netCallbacks.clear();
 }
 
 void leychan::Initialize()
@@ -383,7 +402,7 @@ bool leychan::ReadSubChannelData(bf_read& buf, int stream)
 		offset = startFragment * FRAGMENT_SIZE;
 		length = numFragments * FRAGMENT_SIZE;
 
-		//	printf("CURBIT: %i _ LEN: %i _ OFFSET: %i\n", buf.m_iCurBit, numFragments, offset);
+		// printf("CURBIT: %i _ LEN: %i _ OFFSET: %i\n", buf.m_iCurBit, numFragments, offset);
 	}
 
 
@@ -676,15 +695,15 @@ bool leychan::NeedsFragments()
 
 		if (data && data->numFragments != 0)
 		{
-			m_iForceNeedsFrags = 1;
+			this->m_iForceNeedsFrags = 1;
 			return true;
 		}
 	}
 
-	if (m_iForceNeedsFrags)
+	if (this->m_iForceNeedsFrags)
 	{
 
-		m_iForceNeedsFrags--;
+		this->m_iForceNeedsFrags--;
 		return true;
 	}
 
@@ -717,6 +736,40 @@ void leychan::UncompressFragments(dataFragments_t* data)
 	data->isCompressed = false;
 }
 
+SplitPacket leychan::GetOrCreateSplit(int sequenceNumber, int expectedPartsCount)
+{
+	for (auto split : m_Splits)
+	{
+
+		if (split.sequenceNumber == sequenceNumber)
+		{
+			return split;
+		}
+	}
+
+	if (this->m_Splits.size() >= MAX_SPLITPACKETS)
+	{
+		for (auto newSplit : this->m_Splits)
+		{
+			if (newSplit.sequenceNumber != 0 && !newSplit.IsOld())
+			{
+				continue;
+			}
+			newSplit.sequenceNumber = sequenceNumber;
+			newSplit.updateTime = (unsigned int)time(NULL);
+			newSplit.expectedPartsCount = expectedPartsCount;
+			return newSplit;
+		}
+	}
+
+	SplitPacket newSplit;
+	newSplit.sequenceNumber = sequenceNumber;
+	newSplit.updateTime = (unsigned int)time(NULL);
+	newSplit.expectedPartsCount = expectedPartsCount;
+	this->m_Splits.push_back(newSplit);
+	return newSplit;
+}
+
 #pragma pack(1)
 typedef struct
 {
@@ -724,55 +777,80 @@ typedef struct
 	int		sequenceNumber;
 	int		packetID : 16;
 	int		nSplitSize : 16;
-} SPLITPACKET;
+} SOURCESPLITPACKET;
 #pragma pack()
-
-char splitpacket_compiled[999999];
 
 int splitsize = 0;
 
-#define SPLIT_HEADER_SIZE sizeof(SPLITPACKET)
+
+
+#define SPLIT_HEADER_SIZE sizeof(SOURCESPLITPACKET) 
+#define SPLITBUFFER_SIZE 10000000
 
 int leychan::HandleSplitPacket(char* netrecbuffer, int& msgsize, bf_read& recvdata)
 {
-	SPLITPACKET* header = (SPLITPACKET*)netrecbuffer;
+	if (SPLIT_HEADER_SIZE > msgsize)
+	{
+		return 0;
+	}
+
+	SOURCESPLITPACKET* split = (SOURCESPLITPACKET*)netrecbuffer;
+
+	char* splitpacket = netrecbuffer + SPLIT_HEADER_SIZE;
+	int splitpacketsize = msgsize - SPLIT_HEADER_SIZE;
+
 	// pHeader is network endian correct
-	int sequenceNumber = LittleLong(header->sequenceNumber);
-	int packetID = LittleShort(header->packetID);
+	int sequenceNumber = LittleLong(split->sequenceNumber);
+	int packetID = LittleShort(split->packetID);
 	// High byte is packet number
 	int packetNumber = (packetID >> 8);
 	// Low byte is number of total packets
-	int packetCount = (packetID & 0xff) - 1;
+	int packetCount = (packetID & 0xff);
 
-	int nSplitSizeMinusHeader = (int)LittleShort(header->nSplitSize);
+	int nSplitSizeMinusHeader = (int)LittleShort(split->nSplitSize);
 
 	int offset = (packetNumber * nSplitSizeMinusHeader);
 
-	printf("RECEIVED SPLIT PACKET: %i _ %i _ %i:%i | OFFSET: %i\n", sequenceNumber, packetID, packetNumber, packetCount, offset);
+	// printf("leychan::HandleSplitPacket: %i _ %i _ %i:%i | OFFSET: %i\n", sequenceNumber, packetID, packetNumber, packetCount, offset);
 
-	memcpy(splitpacket_compiled + offset, netrecbuffer + SPLIT_HEADER_SIZE, msgsize - SPLIT_HEADER_SIZE);
-
-
-	if (packetNumber == packetCount)
+	if (offset > SPLITBUFFER_SIZE || offset + msgsize > SPLITBUFFER_SIZE)
 	{
+		return 0;
+	}
+
+	auto internalSplit = this->GetOrCreateSplit(split->sequenceNumber, packetCount);
+	internalSplit.InsertPart(offset, splitpacketsize, splitpacket);
+
+
+	if (packetNumber == packetCount - 1)
+	{
+		internalSplit.totalExpectedSize = (packetCount - 1) * nSplitSizeMinusHeader + splitpacketsize;
+	}
+
+	if (internalSplit.IsComplete())
+	{
+		char* completedPacket = internalSplit.CreateAssembledPacket();
+		int completedPacketSize = internalSplit.totalExpectedSize;
+		internalSplit.Reset();
+
+
 		memset(netrecbuffer, 0, msgsize);
+		memcpy(netrecbuffer, completedPacket, completedPacketSize);
+		recvdata.StartReading(netrecbuffer, completedPacketSize, 0);
 
-
-		splitsize = offset + msgsize;
-		memcpy(netrecbuffer, splitpacket_compiled, splitsize);
-		msgsize = splitsize;
-		recvdata.StartReading(netrecbuffer, msgsize, 0);
-
+		delete[] completedPacket;
+		msgsize = completedPacketSize;
 		return 1;
-
 	}
 
 	return 0;
 }
 
-bool leychan::HandleMessage(bf_read& msg, int type)
+int leychan::HandleMessage(bf_read& msg, int type)
 {
-	bool shouldretfalse = false;
+	bool ignoredmessage = false;
+	bool cbfound = false;
+	bool toosmall = false;
 
 	for (auto pos = this->m_netCallbacks.begin(); pos != this->m_netCallbacks.end(); ++pos)
 	{
@@ -780,26 +858,45 @@ bool leychan::HandleMessage(bf_read& msg, int type)
 
 		if (kv->first == type)
 		{
+			cbfound = true;
 			std::pair<void*, netcallbackfn>* fninfo = kv->second;
+			netmsg_common* basemsg = (netmsg_common*)fninfo->first;
 
 			netcallbackfn cb = fninfo->second;
 
+			if (basemsg->LengthTooSmall(msg.GetNumBytesLeft()))
+			{
+				toosmall = true;
+				break;
+			}
+
 			if (!cb(this, fninfo->first, msg))
-				shouldretfalse = true;
+			{
+				ignoredmessage = true;
+			}
 		}
 	}
 
-	if (shouldretfalse)
+	if (toosmall)
 	{
-		return false;
+		return 3;
 	}
 
-	return true;
+	if (ignoredmessage)
+	{
+		return 2;
+	}
+
+	if (cbfound)
+	{
+		return 1;
+	}
+
+	return 0;
 }
 
 int leychan::ProcessMessages(bf_read& msgs)
 {
-
 	int processed = 0;
 	while (true)
 	{
@@ -810,20 +907,33 @@ int leychan::ProcessMessages(bf_read& msgs)
 
 
 
-		unsigned char type = msgs.ReadUBitLong(NETMSG_TYPE_BITS);
+		int type = (int)msgs.ReadUBitLong(NETMSG_TYPE_BITS);
 
-		bool handled = this->HandleMessage(msgs, type);
+		int handled = this->HandleMessage(msgs, type);
 
-		if (!handled)
+		if (handled == 0)
 		{
 			printf("Unhandled Message: %i\n", type);
 			return processed;
 		}
 
+		if (handled == 2)
+		{
+			printf("Ignored Message: %i\n", type);
+			return processed;
+		}
+
+		if (handled == 3)
+		{
+			printf("Too small Message for type: %i\n", type);
+			return processed;
+		}
 		processed++;
 
-		if (msgs.GetNumBitsLeft() < NETMSG_TYPE_BITS)
+		if (msgs.IsOverflowed() || msgs.GetNumBitsLeft() < NETMSG_TYPE_BITS)
 		{
+			msgs.Reset();
+
 			return processed;
 		}
 	}
@@ -849,12 +959,22 @@ bool leychan::RegisterMessageHandler(int msgtype, void* classptr, netcallbackfn 
 
 void leychan::SetSignonState(int state, int servercount)
 {
+	printf("leychan::SetSignonState Should do SetSignonState  %i, %i\n", state, servercount);
 
-	printf("Should do SetSignonState  %i, %i\n", state, servercount);
-
-	if (this->m_iSignOnState == state)
+	if (state == 2 && servercount == -1)
 	{
-		printf("Ignored signonstate!\n");
+		printf("leychan::SetSignonState Forced to reconnect\n");
+		this->m_iSignOnState = 2;
+		int bakCnt = this->m_iServerCount;
+		Reset();
+		this->m_iServerCount = bakCnt;
+		this->connectstep = 6;
+		return;
+	}
+
+	if (this->m_iSignOnState > state)
+	{
+		printf("leychan::SetSignonState Ignored signonstate %d we are on %d\n", state, this->m_iSignOnState);
 		return;
 	}
 
@@ -863,8 +983,11 @@ void leychan::SetSignonState(int state, int servercount)
 
 	if (state == 3)
 	{
-		printf("yo2\n");
-		this->connectstep++;
+		printf("leychan::SetSignonState Received SignonState 3!\n");
+		if (this->connectstep == 7)
+		{
+			this->connectstep = 8;
+		}
 		return;
 	}
 
@@ -879,7 +1002,7 @@ void leychan::ProcessServerInfo(unsigned short protocolversion, int count)
 	if (this->connectstep)
 	{
 		this->m_iServerCount = count;
-		this->connectstep++;
+		this->connectstep = 6;
 	}
 
 	printf("ProcessServerInfo\n");

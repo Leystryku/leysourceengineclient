@@ -8,7 +8,7 @@ class leychan;
 class svc_tempentities : public netmsg_common
 {
 public:
-	svc_tempentities() : netmsg_common("svc_tempentities", 27) { }
+	svc_tempentities() : netmsg_common("svc_tempentities", 27, sizeof(char) + sizeof(char)) { }
 
 	bool Register(leychan* chan);
 	static bool ParseMessage(leychan* chan, svc_tempentities* thisptr, bf_read& msg);

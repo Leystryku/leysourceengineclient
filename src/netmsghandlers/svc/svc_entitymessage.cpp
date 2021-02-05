@@ -15,7 +15,7 @@ bool svc_entitymessage::Register(leychan* chan)
 
 bool svc_entitymessage::ParseMessage(leychan* chan, svc_entitymessage* thisptr, bf_read& msg)
 {
-	// TODO: Maybe add proper entity packet parsing
+	// TODO: This message structure might be likely wrong, if yes fix it
 	int ent = msg.ReadUBitLong(MAX_EDICT_BITS);
 	int entclass = msg.ReadUBitLong(MAX_SERVER_CLASS_BITS);
 	int bits = msg.ReadUBitLong(MAX_ENTITYMESSAGE_BITS);

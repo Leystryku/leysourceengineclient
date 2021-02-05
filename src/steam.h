@@ -5,7 +5,6 @@ class ISteamClient017;
 class IClientEngine;
 class ISteamUser017;
 
-
 class Steam
 {
 public:

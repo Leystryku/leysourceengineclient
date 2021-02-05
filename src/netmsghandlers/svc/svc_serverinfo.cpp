@@ -37,12 +37,18 @@ bool svc_serverinfo::ParseMessage(leychan* chan, svc_serverinfo* thisptr, bf_rea
 	char loadingurl[255];
 	char gamemode[255];
 
+	if (msg.IsOverflowed())
+		return false;
+
 	msg.ReadString(gamedir, sizeof(gamedir));
 	msg.ReadString(levelname, sizeof(levelname));
 	msg.ReadString(skyname, sizeof(skyname));
 	msg.ReadString(hostname, sizeof(hostname));
 	msg.ReadString(loadingurl, sizeof(loadingurl));
 	msg.ReadString(gamemode, sizeof(gamemode));
+
+	if (msg.IsOverflowed())
+		return false;
 
 	printf("ServerInfo, players: %lu/%lu | map: %s | name: %s | gm: %s | count: %i | left: %i\n", players, maxplayers, levelname, hostname, gamemode, servercount, msg.GetNumBitsLeft());
 

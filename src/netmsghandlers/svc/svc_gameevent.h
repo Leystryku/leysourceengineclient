@@ -8,7 +8,7 @@ class leychan;
 class svc_gameevent : public netmsg_common
 {
 public:
-	svc_gameevent() : netmsg_common("svc_gameevent", 25) { }
+	svc_gameevent() : netmsg_common("svc_gameevent", 25, sizeof(char)) { }
 
 	bool Register(leychan* chan);
 	static bool ParseMessage(leychan* chan, svc_gameevent* thisptr, bf_read& msg);
