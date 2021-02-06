@@ -63,14 +63,9 @@ int Steam::Initiate()
 		return 5;
 	}
 
-	if (!(this->clientEngine = (IClientEngine*)fnApiInterface(CLIENTENGINE_INTERFACE_VERSION, NULL)))
-	{
-		return 6;
-	}
-
 	if (!(this->steamUser = (ISteamUser017*)this->steamClient->GetISteamUser(this->steamUserHandle, this->steamPipeHandle, STEAMUSER_INTERFACE_VERSION_017)))
 	{
-		return 7;
+		return 6;
 	}
 
 	temporaryHack = this->steamUser;
