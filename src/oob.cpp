@@ -239,7 +239,7 @@ bool OOB::HandleCompressedPacket(leychan* chan, bf_read& recvdata, char* netrecb
 	}
 
 	char* lzssStart = (char*)netrecbuffer + 4;
-	unsigned int uncompressedSize = leychan::NET_GetDecompressedBufferSize(lzssStart) * 2;
+	unsigned int uncompressedSize = leychan::NET_GetDecompressedBufferSize(lzssStart);
 
 	if (uncompressedSize == 0)
 	{
