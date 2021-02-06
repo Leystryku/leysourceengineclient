@@ -372,6 +372,7 @@ int main(int argc, const char* argv[])
 	if (err)
 	{
 		printf("Failed to initiate Steam: %d\n", err);
+		return 2;
 	}
 
 
