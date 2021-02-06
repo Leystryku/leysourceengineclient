@@ -17,7 +17,6 @@ public:
 private:
 	ISteamClient017* steamClient;
 	ISteamUser017* steamUser;
-	IClientEngine* clientEngine;
 
 	int32_t steamPipeHandle;
 	int32_t steamUserHandle;
