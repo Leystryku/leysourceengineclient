@@ -24,6 +24,7 @@ If you wish to compile this yourself:
 
 The only supported platform right now is Windows. Feel free to contribute!
 
+note: This was created _BEFORE_ the recent source engine leak in 2018 or whatever.
 
 # Credits
 - Leystryku (me)
