@@ -210,7 +210,7 @@ int dosendthinkloading()
 		printf("Sending clc_ClientInfo\n");
 		netchan.GetSendData()->WriteUBitLong(8, 6);
 		netchan.GetSendData()->WriteLong(netchan.m_iServerCount);
-		netchan.GetSendData()->WriteLong(-2039274783);//clc_ClientInfo crc
+		netchan.GetSendData()->WriteLong(-1260710316);//clc_ClientInfo crc
 		netchan.GetSendData()->WriteOneBit(1);//ishltv
 		netchan.GetSendData()->WriteLong(1337);
 		netchan.GetSendData()->WriteUBitLong(0, 21);
